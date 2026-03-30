@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { 
   StyleSheet, Text, View, TouchableOpacity, SafeAreaView, 
-  ScrollView, Platform, ActivityIndicator, RefreshControl 
+  ScrollView, ActivityIndicator, RefreshControl, Modal, Platform 
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
@@ -21,16 +21,43 @@ interface ModuleButtonProps {
   onPress: () => void;
 }
 
+// LISTA DE TODOS LOS MÓDULOS DISPONIBLES EN TU SISTEMA
+const MODULOS_DISPONIBLES = [
+  { id: 'ventas', label: 'Venta Rápida', desc: 'Punto de venta', icon: 'cart', color: '#0056FF', route: '/(admin)/ventas' },
+  { id: 'productos', label: 'Productos', desc: 'Tu inventario', icon: 'cube', color: '#2ecc71', route: '/(admin)/productos' },
+  { id: 'reportes', label: 'Reportes', desc: 'Cortes de caja', icon: 'bar-chart', color: '#e67e22', route: '/(admin)/historial' },
+  { id: 'taller', label: 'Taller', desc: 'Control de equipos', icon: 'build', color: '#e74c3c', route: '/(admin)/taller' },
+  { id: 'inversion', label: 'Inversión', desc: 'Gastos y compras', icon: 'cash', color: '#9b59b6', route: '/(admin)/inversion' },
+  { id: 'cotizacion', label: 'Cotizaciones', desc: 'Presupuestos PDF', icon: 'document-text', color: '#34495e', route: '/(admin)/cotizacion' },
+  { id: 'usuarios', label: 'Usuarios', desc: 'Gestión de personal', icon: 'people', color: '#16a085', route: '/(admin)/usuarios' },
+  { id: 'servicios', label: 'Servicios', desc: 'Catálogo de reparaciones', icon: 'construct', color: '#f39c12', route: '/(admin)/servicios' },
+  { id: 'clientes', label: 'Clientes', desc: 'Directorio y lealtad', icon: 'people', color: '#3b82f6', route: '/(admin)/clientes' }, // <--- ¡AQUÍ ESTÁ EL NUEVO!
+];
+
 export default function AdminDashboard() {
   const router = useRouter();
   const { usuario } = useAuth();
 
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false); // Estado para el Pull-to-Refresh
+  const [refreshing, setRefreshing] = useState(false);
   const [ventasHoy, setVentasHoy] = useState<any[]>([]);
   const [totalDinero, setTotalDinero] = useState(0);
+  const [equiposTaller, setEquiposTaller] = useState(0);
+
+  // Estados para la personalización de módulos
+  const [modalModulosVisible, setModalModulosVisible] = useState(false);
+  // Módulos por defecto si es la primera vez que entran
+  const [modulosActivos, setModulosActivos] = useState<string[]>(['ventas', 'productos', 'reportes', 'inversion']);
 
   useEffect(() => {
+    // Cargar preferencias de módulos si estamos en la web
+    if (Platform.OS === 'web') {
+      const guardados = localStorage.getItem('gs_modulos_preferidos');
+      if (guardados) {
+        setModulosActivos(JSON.parse(guardados));
+      }
+    }
+
     if (usuario) {
       cargarDatosDashboard();
 
@@ -50,19 +77,32 @@ export default function AdminDashboard() {
       const hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
 
-      const { data, error } = await supabase
+      // 1. Cargar Ventas
+      const { data: ventasData, error: ventasError } = await supabase
         .from('ventas')
         .select('*')
         .gte('created_at', hoy.toISOString())
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (ventasError) throw ventasError;
 
-      if (data) {
-        setVentasHoy(data);
-        const suma = data.reduce((acc, v) => acc + parseFloat(v.total), 0);
+      if (ventasData) {
+        setVentasHoy(ventasData);
+        const suma = ventasData.reduce((acc, v) => acc + parseFloat(v.total), 0);
         setTotalDinero(suma);
       }
+
+      // 2. Cargar Equipos Pendientes en Taller
+      // CORRECCIÓN: 'ENTREGADO' todo en mayúsculas
+      const { count, error: tallerError } = await supabase
+        .from('reparaciones')
+        .select('*', { count: 'exact', head: true })
+        .neq('estado', 'ENTREGADO'); 
+
+      if (!tallerError && count !== null) {
+        setEquiposTaller(count);
+      }
+
     } catch (err) {
       console.log("Error dashboard:", err);
     } finally {
@@ -70,14 +110,12 @@ export default function AdminDashboard() {
     }
   };
 
-  // --- NUEVA FUNCIÓN: PARA RECARGAR AL DESLIZAR HACIA ABAJO ---
   const onRefresh = useCallback(async () => {
     setRefreshing(true);
     await cargarDatosDashboard();
     setRefreshing(false);
   }, []);
 
-  // --- NUEVA FUNCIÓN: SALUDO DINÁMICO ---
   const obtenerSaludo = () => {
     const hora = new Date().getHours();
     if (hora < 12) return 'Buenos días';
@@ -88,6 +126,23 @@ export default function AdminDashboard() {
   const fechaTexto = new Date().toLocaleDateString('es-MX', { 
     weekday: 'long', day: 'numeric', month: 'long' 
   });
+
+  // Funciones para el Modal de Personalización
+  const toggleModulo = (id: string) => {
+    if (modulosActivos.includes(id)) {
+      if (modulosActivos.length <= 1) return; // No permitir borrar todos
+      setModulosActivos(prev => prev.filter(m => m !== id));
+    } else {
+      setModulosActivos(prev => [...prev, id]);
+    }
+  };
+
+  const guardarPersonalizacion = () => {
+    if (Platform.OS === 'web') {
+      localStorage.setItem('gs_modulos_preferidos', JSON.stringify(modulosActivos));
+    }
+    setModalModulosVisible(false);
+  };
 
   if (!usuario) {
     return (
@@ -123,7 +178,6 @@ export default function AdminDashboard() {
           <View style={styles.summaryInfo}>
             <View>
               <Text style={styles.summaryLabel}>Ventas Totales Hoy</Text>
-              {/* Le agregamos formato de comas a los miles de forma segura */}
               <Text style={styles.summaryValue}>
                 ${totalDinero.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ",")}
               </Text>
@@ -138,37 +192,47 @@ export default function AdminDashboard() {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Módulos de Gestión</Text>
+        {/* INDICADOR DE TALLER CORREGIDO */}
+        {equiposTaller > 0 && (
+          <TouchableOpacity 
+            style={styles.tallerIndicator}
+            onPress={() => router.push('/(admin)/taller' as any)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.tallerIndicatorLeft}>
+              <View style={styles.tallerIconBadge}>
+                <Ionicons name="build" size={20} color="#e67e22" />
+              </View>
+              <Text style={styles.tallerIndicatorText}>Equipos en Taller</Text>
+            </View>
+            <View style={styles.tallerBadge}>
+              <Text style={styles.tallerBadgeText}>{equiposTaller}</Text>
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {/* CABECERA DE MÓDULOS CON BOTÓN DE PERSONALIZAR */}
+        <View style={styles.sectionHeaderRow}>
+          <Text style={styles.sectionTitle}>Módulos de Gestión</Text>
+          <TouchableOpacity onPress={() => setModalModulosVisible(true)}>
+            <Text style={styles.editModulesText}>Personalizar</Text>
+          </TouchableOpacity>
+        </View>
         
+        {/* GRID DE MÓDULOS DINÁMICO */}
         <View style={styles.gridContainer}>
-          <ModuleButton 
-            label="Venta Rápida" 
-            description="Punto de venta"
-            icon="cart" 
-            color="#0056FF" 
-            onPress={() => router.push('/(admin)/ventas' as any)} 
-          />
-          <ModuleButton 
-            label="Productos" 
-            description="Tu inventario"
-            icon="cube" 
-            color="#2ecc71" 
-            onPress={() => router.push('/(admin)/productos' as any)} 
-          />
-          <ModuleButton 
-            label="Reportes" 
-            description="Cortes de caja"
-            icon="bar-chart" 
-            color="#e67e22" 
-            onPress={() => router.push('/(admin)/historial' as any)} 
-          />
-          <ModuleButton 
-            label="Ajustes" 
-            description="Configuración"
-            icon="settings" 
-            color="#8e44ad" 
-            onPress={() => alert('Próximamente')} 
-          />
+          {MODULOS_DISPONIBLES
+            .filter(mod => modulosActivos.includes(mod.id))
+            .map(mod => (
+              <ModuleButton 
+                key={mod.id}
+                label={mod.label} 
+                description={mod.desc}
+                icon={mod.icon as any} 
+                color={mod.color} 
+                onPress={() => router.push(mod.route as any)} 
+              />
+          ))}
         </View>
 
         <View style={styles.recentActivityHeader}>
@@ -213,6 +277,46 @@ export default function AdminDashboard() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
+      {/* MODAL PARA PERSONALIZAR MÓDULOS */}
+      <Modal visible={modalModulosVisible} animationType="slide" transparent={true}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Configurar Accesos</Text>
+            <Text style={styles.modalSubtitle}>Selecciona los módulos que deseas ver en tu pantalla de inicio.</Text>
+            
+            <ScrollView style={{ maxHeight: 300, marginBottom: 15 }}>
+              {MODULOS_DISPONIBLES.map(mod => {
+                const isActive = modulosActivos.includes(mod.id);
+                return (
+                  <TouchableOpacity 
+                    key={mod.id} 
+                    style={[styles.moduloOption, isActive && styles.moduloOptionActive]}
+                    onPress={() => toggleModulo(mod.id)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <View style={[styles.miniIconContainer, { backgroundColor: mod.color + '20' }]}>
+                        <Ionicons name={mod.icon as any} size={18} color={mod.color} />
+                      </View>
+                      <Text style={[styles.moduloOptionText, isActive && { fontWeight: 'bold' }]}>{mod.label}</Text>
+                    </View>
+                    <Ionicons 
+                      name={isActive ? "checkmark-circle" : "ellipse-outline"} 
+                      size={24} 
+                      color={isActive ? LOGO_BLUE : '#cbd5e1'} 
+                    />
+                  </TouchableOpacity>
+                )
+              })}
+            </ScrollView>
+
+            <TouchableOpacity style={styles.btnGuardarPersonalizacion} onPress={guardarPersonalizacion}>
+              <Text style={{color: '#fff', fontWeight: 'bold', fontSize: 16}}>Guardar Preferencias</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
       <FooterNav />
     </SafeAreaView>
   );
@@ -241,11 +345,12 @@ const styles = StyleSheet.create({
   welcomeSection: { marginBottom: 20 },
   welcomeText: { fontSize: 24, fontWeight: '900', color: '#1e293b' },
   dateText: { fontSize: 14, color: '#64748b', marginTop: 4, textTransform: 'capitalize' },
+  
   summaryCard: {
     backgroundColor: LOGO_BLUE,
     borderRadius: 24,
     padding: 25,
-    marginBottom: 30,
+    marginBottom: 20,
     elevation: 8,
     shadowColor: LOGO_BLUE,
     shadowOffset: { width: 0, height: 6 },
@@ -259,7 +364,36 @@ const styles = StyleSheet.create({
   summaryDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginVertical: 15 },
   summaryFooter: { flexDirection: 'row', alignItems: 'center' },
   footerText: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },
-  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1e293b', marginBottom: 15 },
+  
+  tallerIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#fff',
+    padding: 16,
+    borderRadius: 16,
+    marginBottom: 25,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+  },
+  tallerIndicatorLeft: { flexDirection: 'row', alignItems: 'center' },
+  tallerIconBadge: {
+    backgroundColor: '#fff7ed', 
+    width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 12,
+  },
+  tallerIndicatorText: { fontSize: 16, fontWeight: '800', color: '#334155' },
+  tallerBadge: { backgroundColor: '#e74c3c', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  tallerBadgeText: { color: '#fff', fontWeight: '900', fontSize: 14 },
+
+  sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
+  sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1e293b' },
+  editModulesText: { fontSize: 14, fontWeight: '700', color: LOGO_BLUE },
+
   gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   moduleCard: {
     backgroundColor: '#fff',
@@ -274,8 +408,10 @@ const styles = StyleSheet.create({
   iconContainer: { width: 50, height: 50, borderRadius: 16, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
   moduleLabel: { fontSize: 16, fontWeight: '800', color: '#334155', marginBottom: 4 },
   moduleDescription: { fontSize: 12, color: '#94a3b8' },
-  recentActivityHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15 },
+  
+  recentActivityHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 15, marginBottom: 15 },
   seeAllText: { color: LOGO_BLUE, fontSize: 14, fontWeight: '700' },
+  
   emptyStateContainer: { 
     backgroundColor: '#fff', padding: 30, borderRadius: 20, alignItems: 'center', 
     justifyContent: 'center', borderStyle: 'dashed', borderWidth: 2, borderColor: '#e2e8f0'
@@ -287,5 +423,20 @@ const styles = StyleSheet.create({
   },
   ventaIcon: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#f0f7ff', justifyContent: 'center', alignItems: 'center' },
   ventaText: { fontSize: 15, fontWeight: 'bold', color: '#1e293b' },
-  ventaHora: { fontSize: 12, color: '#94a3b8', marginTop: 2 }
+  ventaHora: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
+
+  // Estilos del Modal de Personalización
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContent: { backgroundColor: '#fff', padding: 25, borderTopLeftRadius: 25, borderTopRightRadius: 25, paddingBottom: Platform.OS === 'ios' ? 40 : 25 },
+  modalTitle: { fontSize: 20, fontWeight: '900', color: '#1e293b', marginBottom: 5 },
+  modalSubtitle: { fontSize: 14, color: '#64748b', marginBottom: 20 },
+  moduloOption: { 
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
+    paddingVertical: 12, paddingHorizontal: 15, borderRadius: 12, marginBottom: 8,
+    borderWidth: 1, borderColor: '#f1f5f9'
+  },
+  moduloOptionActive: { backgroundColor: '#f0f5ff', borderColor: '#dbeafe' },
+  miniIconContainer: { width: 32, height: 32, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  moduloOptionText: { fontSize: 15, color: '#334155' },
+  btnGuardarPersonalizacion: { backgroundColor: LOGO_BLUE, paddingVertical: 15, borderRadius: 15, alignItems: 'center', marginTop: 10 },
 });

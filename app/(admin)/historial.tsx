@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, Text, View, SafeAreaView, FlatList, 
   TouchableOpacity, Modal, ScrollView, Linking, Platform, 
-  ActivityIndicator, StatusBar 
+  ActivityIndicator, StatusBar, TextInput 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
@@ -14,14 +14,29 @@ const SUCCESS_GREEN = '#2ecc71';
 export default function HistorialVentas() {
   const router = useRouter();
   const [cargando, setCargando] = useState(true);
+  
+  // Guardamos las ventas "crudas" (originales) para no hacer peticiones a cada rato
+  const [ventasCrudas, setVentasCrudas] = useState<any[]>([]);
   const [ventasAgrupadas, setVentasAgrupadas] = useState<any[]>([]);
+  const [datosGrafica, setDatosGrafica] = useState<any[]>([]);
+  const [maxVentaGrafica, setMaxVentaGrafica] = useState(0);
+
   const [ventaSeleccionada, setVentaSeleccionada] = useState<any>(null);
   const [modalVisible, setModalVisible] = useState(false);
   const [diasExpandidos, setDiasExpandidos] = useState<string[]>([]);
 
+  // NUEVOS ESTADOS: Filtros y Búsqueda
+  const [busqueda, setBusqueda] = useState('');
+  const [filtroTiempo, setFiltroTiempo] = useState('dias'); // 'dias', 'semanas', 'meses', 'anos'
+
   useEffect(() => {
     fetchVentas();
   }, []);
+
+  // Cada vez que cambie la búsqueda, el filtro o los datos, recalculamos
+  useEffect(() => {
+    procesarVentas(ventasCrudas, busqueda, filtroTiempo);
+  }, [ventasCrudas, busqueda, filtroTiempo]);
 
   const fetchVentas = async () => {
     setCargando(true);
@@ -32,35 +47,69 @@ export default function HistorialVentas() {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
       if (data) {
-        const grupos = data.reduce((acc: any, venta: any) => {
-          const fecha = new Date(venta.created_at).toLocaleDateString('es-MX', {
-            day: '2-digit', month: 'long', year: 'numeric'
-          });
-          
-          if (!acc[fecha]) {
-            acc[fecha] = { ventas: [], totalDia: 0 };
-          }
-          
-          acc[fecha].ventas.push(venta);
-          acc[fecha].totalDia += parseFloat(venta.total) || 0;
-          return acc;
-        }, {});
-
-        const listaAgrupada = Object.keys(grupos).map(fecha => ({
-          fecha,
-          datos: grupos[fecha].ventas,
-          totalDia: grupos[fecha].totalDia
-        }));
-
-        setVentasAgrupadas(listaAgrupada);
+        setVentasCrudas(data);
       }
     } catch (err) {
       console.error(err);
     } finally {
       setCargando(false);
     }
+  };
+
+  // --- LÓGICA DE AGRUPACIÓN Y FILTRADO ---
+  const procesarVentas = (datos: any[], textoBusqueda: string, filtro: string) => {
+    // 1. Filtrar por búsqueda (vendedor o método de pago)
+    let filtrados = datos;
+    if (textoBusqueda) {
+      const q = textoBusqueda.toLowerCase();
+      filtrados = datos.filter(v => 
+        v.vendedor_nombre?.toLowerCase().includes(q) || 
+        v.metodo_pago?.toLowerCase().includes(q)
+      );
+    }
+
+    // 2. Agrupar según el filtro de tiempo
+    const grupos = filtrados.reduce((acc: any, venta: any) => {
+      const fechaObj = new Date(venta.created_at);
+      let claveGrupo = '';
+
+      if (filtro === 'dias') {
+        claveGrupo = fechaObj.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
+      } else if (filtro === 'semanas') {
+        // Obtenemos el lunes de esa semana
+        const dia = fechaObj.getDay();
+        const diff = fechaObj.getDate() - dia + (dia === 0 ? -6 : 1);
+        const lunes = new Date(fechaObj.setDate(diff));
+        claveGrupo = `Semana ${lunes.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}`;
+      } else if (filtro === 'meses') {
+        claveGrupo = fechaObj.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
+      } else if (filtro === 'anos') {
+        claveGrupo = fechaObj.getFullYear().toString();
+      }
+      
+      if (!acc[claveGrupo]) acc[claveGrupo] = { ventas: [], totalDia: 0 };
+      
+      acc[claveGrupo].ventas.push(venta);
+      acc[claveGrupo].totalDia += parseFloat(venta.total) || 0;
+      return acc;
+    }, {});
+
+    const listaAgrupada = Object.keys(grupos).map(fecha => ({
+      fecha,
+      datos: grupos[fecha].ventas,
+      totalDia: grupos[fecha].totalDia
+    }));
+
+    setVentasAgrupadas(listaAgrupada);
+
+    // 3. Preparar datos para la gráfica (Tomamos los últimos 7 periodos y los invertimos para que el más nuevo salga a la derecha)
+    const paraGrafica = listaAgrupada.slice(0, 7).reverse();
+    setDatosGrafica(paraGrafica);
+
+    // Encontrar el valor máximo para escalar la gráfica correctamente
+    const max = Math.max(...paraGrafica.map(item => item.totalDia), 0);
+    setMaxVentaGrafica(max > 0 ? max : 1); // Evitamos división por cero
   };
 
   const toggleDia = (fecha: string) => {
@@ -108,14 +157,49 @@ export default function HistorialVentas() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
-          <Ionicons name="arrow-back" size={28} color="#333" />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>HISTORIAL DE VENTAS</Text>
-        <TouchableOpacity onPress={fetchVentas} style={styles.headerBtn}>
-          <Ionicons name="refresh" size={24} color={LOGO_BLUE} />
-        </TouchableOpacity>
+      
+      {/* HEADER Y BÚSQUEDA */}
+      <View style={styles.headerContainer}>
+        <View style={styles.header}>
+          <TouchableOpacity onPress={() => router.back()} style={styles.headerBtn}>
+            <Ionicons name="arrow-back" size={28} color="#333" />
+          </TouchableOpacity>
+          <Text style={styles.headerTitle}>HISTORIAL DE VENTAS</Text>
+          <TouchableOpacity onPress={fetchVentas} style={styles.headerBtn}>
+            <Ionicons name="refresh" size={24} color={LOGO_BLUE} />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.searchContainer}>
+          <Ionicons name="search" size={20} color="#94a3b8" style={styles.searchIcon} />
+          <TextInput
+            style={[styles.searchInput, Platform.OS === 'web' && { outlineStyle: 'none' } as any]}
+            placeholder="Buscar por vendedor o método..."
+            value={busqueda}
+            onChangeText={setBusqueda}
+          />
+          {busqueda.length > 0 && (
+            <TouchableOpacity onPress={() => setBusqueda('')}>
+              <Ionicons name="close-circle" size={20} color="#94a3b8" />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* BOTONES DE FILTRO DE TIEMPO */}
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtrosScroll} contentContainerStyle={styles.filtrosContainer}>
+          <TouchableOpacity style={[styles.filtroBtn, filtroTiempo === 'dias' && styles.filtroBtnActivo]} onPress={() => setFiltroTiempo('dias')}>
+            <Text style={[styles.filtroText, filtroTiempo === 'dias' && styles.filtroTextActivo]}>Días</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.filtroBtn, filtroTiempo === 'semanas' && styles.filtroBtnActivo]} onPress={() => setFiltroTiempo('semanas')}>
+            <Text style={[styles.filtroText, filtroTiempo === 'semanas' && styles.filtroTextActivo]}>Semanas</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.filtroBtn, filtroTiempo === 'meses' && styles.filtroBtnActivo]} onPress={() => setFiltroTiempo('meses')}>
+            <Text style={[styles.filtroText, filtroTiempo === 'meses' && styles.filtroTextActivo]}>Meses</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={[styles.filtroBtn, filtroTiempo === 'anos' && styles.filtroBtnActivo]} onPress={() => setFiltroTiempo('anos')}>
+            <Text style={[styles.filtroText, filtroTiempo === 'anos' && styles.filtroTextActivo]}>Años</Text>
+          </TouchableOpacity>
+        </ScrollView>
       </View>
 
       {cargando ? (
@@ -128,10 +212,32 @@ export default function HistorialVentas() {
           data={ventasAgrupadas}
           keyExtractor={(item) => item.fecha}
           contentContainerStyle={styles.listContent}
+          ListHeaderComponent={
+            // --- GRÁFICA DE BARRAS NATIVA ---
+            datosGrafica.length > 0 ? (
+              <View style={styles.graficaContainer}>
+                <Text style={styles.graficaTitulo}>Rendimiento ({filtroTiempo.toUpperCase()})</Text>
+                <View style={styles.graficaChart}>
+                  {datosGrafica.map((item, index) => {
+                    const alturaPorcentaje = (item.totalDia / maxVentaGrafica) * 100;
+                    return (
+                      <View key={index} style={styles.graficaBarraWrapper}>
+                        <Text style={styles.graficaValor}>${Math.round(item.totalDia)}</Text>
+                        <View style={styles.graficaPista}>
+                          <View style={[styles.graficaRelleno, { height: `${alturaPorcentaje}%` }]} />
+                        </View>
+                        <Text style={styles.graficaEtiqueta} numberOfLines={1}>{item.fecha.substring(0, 6)}</Text>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null
+          }
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <Ionicons name="receipt-outline" size={60} color="#cbd5e1" />
-              <Text style={styles.emptyText}>Aún no hay ventas registradas.</Text>
+              <Text style={styles.emptyText}>No se encontraron ventas.</Text>
             </View>
           }
           renderItem={({ item }) => (
@@ -164,7 +270,7 @@ export default function HistorialVentas() {
         />
       )}
 
-      {/* MODAL DE DETALLE COMPLETO */}
+      {/* MODAL DE DETALLE COMPLETO (Se mantiene igual que tu versión) */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -207,7 +313,6 @@ export default function HistorialVentas() {
                 <Text style={styles.seccionTitle}>ARTÍCULOS VENDIDOS</Text>
                 <View style={styles.ticketBox}>
                   
-                  {/* AQUÍ ESTÁ LA SOLUCIÓN: SI TIENE PRODUCTOS LOS MUESTRA, SI NO, MUESTRA UNO POR DEFECTO */}
                   {ventaSeleccionada.productos_json && ventaSeleccionada.productos_json.length > 0 ? (
                     ventaSeleccionada.productos_json.map((p: any, i: number) => (
                       <View key={i} style={styles.productoFila}>
@@ -251,42 +356,55 @@ export default function HistorialVentas() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f6f7fb' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  
+  // Header y Buscador combinados
+  headerContainer: { backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f1f5f9', paddingBottom: 10 },
   header: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    justifyContent: 'space-between', 
-    paddingHorizontal: 20, 
-    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 10, 
-    height: Platform.OS === 'android' ? 65 + (StatusBar.currentHeight || 0) : 60,
-    backgroundColor: '#fff', 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#f1f5f9' 
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', 
+    paddingHorizontal: 20, paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight || 20 : 50, 
+    paddingBottom: 15
   },
   headerBtn: { padding: 5, justifyContent: 'center' },
   headerTitle: { fontSize: 16, fontWeight: '900', color: '#1e293b', letterSpacing: 0.5 },
   
+  searchContainer: {
+    flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8fafc',
+    marginHorizontal: 20, marginBottom: 15, paddingHorizontal: 15, borderRadius: 12,
+    borderWidth: 1, borderColor: '#e2e8f0'
+  },
+  searchIcon: { marginRight: 10 },
+  searchInput: { flex: 1, paddingVertical: 10, fontSize: 14, color: '#1e293b' },
+
+  filtrosScroll: { paddingHorizontal: 20 },
+  filtrosContainer: { paddingRight: 40, flexDirection: 'row', alignItems: 'center' },
+  filtroBtn: { backgroundColor: '#f1f5f9', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 20, marginRight: 10, borderWidth: 1, borderColor: '#e2e8f0' },
+  filtroBtnActivo: { backgroundColor: LOGO_BLUE, borderColor: LOGO_BLUE },
+  filtroText: { fontSize: 12, color: '#64748b', fontWeight: 'bold' },
+  filtroTextActivo: { color: '#fff' },
+
+  // Estilos de la Gráfica Nativa
+  graficaContainer: { backgroundColor: '#fff', borderRadius: 16, padding: 20, marginBottom: 20, elevation: 2, borderWidth: 1, borderColor: '#f1f5f9' },
+  graficaTitulo: { fontSize: 14, fontWeight: '800', color: '#1e293b', marginBottom: 20 },
+  graficaChart: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', height: 120 },
+  graficaBarraWrapper: { alignItems: 'center', flex: 1 },
+  graficaValor: { fontSize: 9, color: '#64748b', fontWeight: 'bold', marginBottom: 5 },
+  graficaPista: { width: 12, height: 80, backgroundColor: '#f1f5f9', borderRadius: 6, justifyContent: 'flex-end', overflow: 'hidden' },
+  graficaRelleno: { width: '100%', backgroundColor: LOGO_BLUE, borderRadius: 6 },
+  graficaEtiqueta: { fontSize: 9, color: '#94a3b8', marginTop: 8, textTransform: 'capitalize' },
+
   listContent: { padding: 15, paddingBottom: 50 },
-  emptyContainer: { alignItems: 'center', justifyContent: 'center', marginTop: 100 },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', marginTop: 50 },
   emptyText: { color: '#94a3b8', fontSize: 16, marginTop: 10, fontWeight: '500' },
 
   diaContainer: { marginBottom: 15 },
   diaHeader: { 
-    flexDirection: 'row', 
-    justifyContent: 'space-between', 
-    alignItems: 'center', 
-    backgroundColor: '#fff', 
-    padding: 18, 
-    borderRadius: 16, 
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', 
+    backgroundColor: '#fff', padding: 18, borderRadius: 16, elevation: 2,
+    borderWidth: 1, borderColor: '#f1f5f9'
   },
   iconDate: { backgroundColor: '#f0f5ff', padding: 8, borderRadius: 10, marginRight: 12 },
   diaInfo: { flexDirection: 'row', alignItems: 'center' },
   diaTexto: { fontSize: 15, fontWeight: '800', color: '#1e293b', textTransform: 'capitalize' },
-  
   diaTotalDinero: { fontSize: 16, fontWeight: '900', color: LOGO_BLUE },
   diaBadgeText: { fontSize: 11, fontWeight: '600', color: '#94a3b8', marginTop: 2 },
   
@@ -303,23 +421,19 @@ const styles = StyleSheet.create({
   modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 30, borderTopRightRadius: 30, padding: 25, maxHeight: '85%' },
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
   modalTitle: { fontSize: 18, fontWeight: '900', color: '#1e293b', letterSpacing: 1 },
-  
   infoCard: { backgroundColor: '#f8fafc', padding: 15, borderRadius: 15, marginBottom: 20, borderWidth: 1, borderColor: '#f1f5f9' },
   infoLine: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8, alignItems: 'center' },
   infoLabel: { fontSize: 12, color: '#64748b', fontWeight: '700', textTransform: 'uppercase' },
   infoVal: { fontSize: 14, color: '#1e293b', fontWeight: '700' },
-  
   seccionTitle: { fontSize: 12, fontWeight: 'bold', color: '#94a3b8', marginBottom: 10, letterSpacing: 1 },
   ticketBox: { backgroundColor: '#fff', padding: 15, borderRadius: 15, borderWidth: 1, borderColor: '#e2e8f0', borderStyle: 'dashed' },
   productoFila: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   pNombre: { fontSize: 14, color: '#334155', flex: 1, fontWeight: '500', marginRight: 10 },
   pPrecio: { fontSize: 14, fontWeight: '700', color: '#1e293b' },
-  
   divider: { height: 1, backgroundColor: '#e2e8f0', marginVertical: 12, borderStyle: 'dashed' },
   totalFila: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   totalLabel: { fontSize: 14, fontWeight: '900', color: '#1e293b' },
   totalMonto: { fontSize: 24, fontWeight: '900', color: LOGO_BLUE },
-  
   btnMapa: { backgroundColor: '#1e293b', flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 16, borderRadius: 15, marginTop: 20 },
   btnMapaText: { color: '#fff', fontWeight: 'bold', marginLeft: 10, fontSize: 13 }
 });

@@ -13,7 +13,7 @@ const { width } = Dimensions.get('window');
 const SIDEBAR_WIDTH = Math.min(width * 0.75, 300);
 const LOGO_BLUE = '#0056FF';
 
-export default function CustomHeader({ title = "CS GAMES - SALE" }: any) {
+export default function CustomHeader({ title = "Punto de Venta" }: any) {
   const router = useRouter();
   const { usuario, setUsuario } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);

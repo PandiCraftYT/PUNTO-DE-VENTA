@@ -96,7 +96,7 @@ export default function LoginScreen() {
           <View style={styles.container}>
             <View style={styles.content}>
               
-              <Text style={styles.title}>GAMES SALE</Text>
+              <Text style={styles.title}>Punto de Venta</Text>
               <Text style={styles.subtitle}>Panel de Administración y Ventas</Text>
 
               {/* INPUT: NÚMERO DE CUENTA */}

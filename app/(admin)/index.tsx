@@ -31,12 +31,14 @@ const MODULOS_DISPONIBLES = [
   { id: 'cotizacion', label: 'Cotizaciones', desc: 'Presupuestos PDF', icon: 'document-text', color: '#34495e', route: '/(admin)/cotizacion' },
   { id: 'usuarios', label: 'Usuarios', desc: 'Gestión de personal', icon: 'people', color: '#16a085', route: '/(admin)/usuarios' },
   { id: 'servicios', label: 'Servicios', desc: 'Catálogo de reparaciones', icon: 'construct', color: '#f39c12', route: '/(admin)/servicios' },
-  { id: 'clientes', label: 'Clientes', desc: 'Directorio y lealtad', icon: 'people', color: '#3b82f6', route: '/(admin)/clientes' }, // <--- ¡AQUÍ ESTÁ EL NUEVO!
+  { id: 'clientes', label: 'Clientes', desc: 'Directorio y lealtad', icon: 'people', color: '#3b82f6', route: '/(admin)/clientes' },
 ];
 
 export default function AdminDashboard() {
   const router = useRouter();
-  const { usuario } = useAuth();
+  
+  // AÑADIDO: Extraemos cargandoSesion del contexto
+  const { usuario, cargandoSesion } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -93,7 +95,6 @@ export default function AdminDashboard() {
       }
 
       // 2. Cargar Equipos Pendientes en Taller
-      // CORRECCIÓN: 'ENTREGADO' todo en mayúsculas
       const { count, error: tallerError } = await supabase
         .from('reparaciones')
         .select('*', { count: 'exact', head: true })
@@ -127,10 +128,9 @@ export default function AdminDashboard() {
     weekday: 'long', day: 'numeric', month: 'long' 
   });
 
-  // Funciones para el Modal de Personalización
   const toggleModulo = (id: string) => {
     if (modulosActivos.includes(id)) {
-      if (modulosActivos.length <= 1) return; // No permitir borrar todos
+      if (modulosActivos.length <= 1) return; 
       setModulosActivos(prev => prev.filter(m => m !== id));
     } else {
       setModulosActivos(prev => [...prev, id]);
@@ -143,6 +143,15 @@ export default function AdminDashboard() {
     }
     setModalModulosVisible(false);
   };
+
+  // AÑADIDO: Mostrar pantalla de carga general si la sesión aún se está verificando
+  if (cargandoSesion) {
+    return (
+      <View style={styles.center}>
+        <ActivityIndicator size="large" color={LOGO_BLUE} />
+      </View>
+    );
+  }
 
   if (!usuario) {
     return (
@@ -192,7 +201,6 @@ export default function AdminDashboard() {
           </View>
         </View>
 
-        {/* INDICADOR DE TALLER CORREGIDO */}
         {equiposTaller > 0 && (
           <TouchableOpacity 
             style={styles.tallerIndicator}
@@ -211,7 +219,6 @@ export default function AdminDashboard() {
           </TouchableOpacity>
         )}
 
-        {/* CABECERA DE MÓDULOS CON BOTÓN DE PERSONALIZAR */}
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Módulos de Gestión</Text>
           <TouchableOpacity onPress={() => setModalModulosVisible(true)}>
@@ -219,7 +226,6 @@ export default function AdminDashboard() {
           </TouchableOpacity>
         </View>
         
-        {/* GRID DE MÓDULOS DINÁMICO */}
         <View style={styles.gridContainer}>
           {MODULOS_DISPONIBLES
             .filter(mod => modulosActivos.includes(mod.id))
@@ -277,7 +283,6 @@ export default function AdminDashboard() {
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* MODAL PARA PERSONALIZAR MÓDULOS */}
       <Modal visible={modalModulosVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -425,7 +430,6 @@ const styles = StyleSheet.create({
   ventaText: { fontSize: 15, fontWeight: 'bold', color: '#1e293b' },
   ventaHora: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
 
-  // Estilos del Modal de Personalización
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   modalContent: { backgroundColor: '#fff', padding: 25, borderTopLeftRadius: 25, borderTopRightRadius: 25, paddingBottom: Platform.OS === 'ios' ? 40 : 25 },
   modalTitle: { fontSize: 20, fontWeight: '900', color: '#1e293b', marginBottom: 5 },

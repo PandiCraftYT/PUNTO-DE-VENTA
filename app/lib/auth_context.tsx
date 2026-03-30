@@ -1,6 +1,6 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { supabase } from './supabase'; // <-- AÑADIDO: Importamos supabase para actualizar la hora
+import { supabase } from './supabase';
 
 const AuthContext = createContext<any>(null);
 
@@ -19,13 +19,15 @@ export const AuthProvider = ({ children }: any) => {
       } catch (error) {
         console.error("Error al recuperar la sesión:", error);
       } finally {
+        // Ya terminó de buscar en la memoria, le avisamos al layout
         setCargandoSesion(false);
       }
     };
+    
     revisarSesion();
   }, []);
 
-  // --- 2. NUEVO: LÓGICA DE CONEXIÓN EN TIEMPO REAL (LATIDO / PING) ---
+  // --- 2. LÓGICA DE CONEXIÓN EN TIEMPO REAL (LATIDO / PING) ---
   useEffect(() => {
     // Si no hay usuario logueado o no tiene ID, no hacemos nada
     if (!usuario || !usuario.id) return;
@@ -52,17 +54,16 @@ export const AuthProvider = ({ children }: any) => {
     // Cuando el usuario cierra la app o cierra sesión, detenemos el ciclo
     return () => clearInterval(latido);
 
-  }, [usuario]); // Esto vuelve a arrancar si el usuario cambia (ej. cierra sesión y entra otro)
+  }, [usuario]); 
 
-
-  // 3. FUNCIÓN PARA ACTUALIZAR USUARIO: Guarda o borra del almacenamiento
+  // 3. FUNCIÓN PARA ACTUALIZAR USUARIO EN EL LOGIN
   const actualizarUsuario = async (nuevoUsuario: any) => {
     try {
       if (nuevoUsuario) {
-        // Guardamos en el teléfono para que no se borre al recargar
+        // Guardamos en el teléfono/navegador para que no se borre al recargar
         await AsyncStorage.setItem('@sesion_usuario', JSON.stringify(nuevoUsuario));
       } else {
-        // Si es null (Cerrar Sesión), lo borramos del teléfono
+        // Si mandan null, limpiamos la memoria
         await AsyncStorage.removeItem('@sesion_usuario');
       }
       setUsuario(nuevoUsuario);
@@ -71,8 +72,24 @@ export const AuthProvider = ({ children }: any) => {
     }
   };
 
+  // 4. FUNCIÓN PARA CERRAR SESIÓN OFICIALMENTE
+  const cerrarSesion = async () => {
+    try {
+      await AsyncStorage.removeItem('@sesion_usuario');
+      setUsuario(null);
+    } catch (error) {
+      console.error("Error al cerrar la sesión:", error);
+    }
+  };
+
   return (
-    <AuthContext.Provider value={{ usuario, setUsuario: actualizarUsuario, cargandoSesion }}>
+    <AuthContext.Provider value={{ 
+      usuario, 
+      setUsuario: actualizarUsuario, 
+      cerrarSesion, 
+      cargandoSesion 
+    }}>
+      {/* Ya no bloqueamos aquí, dejamos que el _layout.tsx decida qué mostrar */}
       {children}
     </AuthContext.Provider>
   );

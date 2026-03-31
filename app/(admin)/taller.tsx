@@ -168,7 +168,7 @@ export default function TallerScreen() {
 
   const avisarWhatsApp = (tel: string, nombre: string, equipo: string, costo: number) => {
     if (!tel) { Alert.alert("Sin número", "No registraste teléfono para este cliente."); return; }
-    const mensaje = `Hola ${nombre}, te avisamos de *GS GAMES SALE* 🎮 que tu ${equipo} ya está listo y reparado. El total a pagar es de $${costo}. ¡Te esperamos en la sucursal!`;
+    const mensaje = `Hola ${nombre}, te avisamos de *punto de venta* 🎮 que tu ${equipo} ya está listo y reparado. El total a pagar es de $${costo}. ¡Te esperamos en la sucursal!`;
     Linking.openURL(`https://wa.me/52${tel}?text=${encodeURIComponent(mensaje)}`);
   };
 

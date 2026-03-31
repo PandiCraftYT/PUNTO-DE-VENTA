@@ -72,7 +72,7 @@ export default function CotizacionScreen() {
       return;
     }
 
-    let mensaje = `🎮 *GS GAMES SALE* 🎮\n*COTIZACIÓN DE SERVICIO / PRODUCTOS*\n\n`;
+    let mensaje = `🎮 *Punto de venta* 🎮\n*COTIZACIÓN DE SERVICIO / PRODUCTOS*\n\n`;
     if (cliente) mensaje += `👤 *Cliente:* ${cliente}\n`;
     mensaje += `📅 *Fecha:* ${new Date().toLocaleDateString('es-MX')}\n\n`;
     mensaje += `*Detalles del presupuesto:*\n`;
@@ -124,7 +124,7 @@ export default function CotizacionScreen() {
         </head>
         <body>
           <div class="header">
-            <h1 class="title">GS GAMES SALE</h1>
+            <h1 class="title">punto de venta</h1>
             <div class="subtitle">COTIZACIÓN DE SERVICIO</div>
           </div>
           

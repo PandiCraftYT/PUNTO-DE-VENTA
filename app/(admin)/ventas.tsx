@@ -198,7 +198,7 @@ export default function VentasScreen() {
   const enviarTicketWhatsApp = () => {
     if (!ticketGenerado) return;
 
-    let mensaje = `🛒 *GS GAMES SALE* 🎮\n¡Gracias por tu compra!\n\n*Detalle de tu ticket:*\n`;
+    let mensaje = `🛒 *Punto de venta* 🎮\n¡Gracias por tu compra!\n\n*Detalle de tu ticket:*\n`;
     
     ticketGenerado.productos.forEach((p: any) => {
       mensaje += `▪️ ${p.cantidad_venta}x ${p.nombre} ($${(p.precio_venta * p.cantidad_venta).toFixed(2)})\n`;

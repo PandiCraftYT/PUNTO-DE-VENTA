@@ -10,7 +10,9 @@ import { supabase } from '../lib/supabase';
 import CustomHeader from '../../components/CustomHeader';
 import FooterNav from '../../components/FooterNav';
 import { useAuth } from '../lib/auth_context'; 
-
+import * as Device from 'expo-device';
+import * as Notifications from 'expo-notifications';
+import Constants from 'expo-constants';
 const LOGO_BLUE = '#0056FF';
 
 interface ModuleButtonProps {
@@ -23,12 +25,13 @@ interface ModuleButtonProps {
 
 // LISTA DE TODOS LOS MÓDULOS DISPONIBLES EN TU SISTEMA
 const MODULOS_DISPONIBLES = [
-  { id: 'ventas', label: 'Venta Rápida', desc: 'Punto de venta', icon: 'cart', color: '#0056FF', route: '/(admin)/ventas' },
+  { id: 'ventas', label: 'Nueva Venta', desc: 'Punto de venta', icon: 'cart', color: '#0056FF', route: '/(admin)/ventas' },
+  { id: 'nuevo_gasto', label: 'Nuevo Gasto', desc: 'Salidas de dinero', icon: 'wallet', color: '#e74c3c', route: '/(admin)/nuevo_gasto' },
   { id: 'productos', label: 'Productos', desc: 'Tu inventario', icon: 'cube', color: '#2ecc71', route: '/(admin)/productos' },
+  { id: 'cotizacion', label: 'Cotizaciones', desc: 'Presupuestos PDF', icon: 'document-text', color: '#34495e', route: '/(admin)/cotizacion' },
   { id: 'reportes', label: 'Reportes', desc: 'Cortes de caja', icon: 'bar-chart', color: '#e67e22', route: '/(admin)/historial' },
   { id: 'taller', label: 'Taller', desc: 'Control de equipos', icon: 'build', color: '#e74c3c', route: '/(admin)/taller' },
   { id: 'inversion', label: 'Inversión', desc: 'Gastos y compras', icon: 'cash', color: '#9b59b6', route: '/(admin)/inversion' },
-  { id: 'cotizacion', label: 'Cotizaciones', desc: 'Presupuestos PDF', icon: 'document-text', color: '#34495e', route: '/(admin)/cotizacion' },
   { id: 'usuarios', label: 'Usuarios', desc: 'Gestión de personal', icon: 'people', color: '#16a085', route: '/(admin)/usuarios' },
   { id: 'servicios', label: 'Servicios', desc: 'Catálogo de reparaciones', icon: 'construct', color: '#f39c12', route: '/(admin)/servicios' },
   { id: 'clientes', label: 'Clientes', desc: 'Directorio y lealtad', icon: 'people', color: '#3b82f6', route: '/(admin)/clientes' },
@@ -50,6 +53,57 @@ export default function AdminDashboard() {
   const [modalModulosVisible, setModalModulosVisible] = useState(false);
   // Módulos por defecto si es la primera vez que entran
   const [modulosActivos, setModulosActivos] = useState<string[]>(['ventas', 'productos', 'reportes', 'inversion']);
+
+  // --- SISTEMA DE NOTIFICACIONES PUSH (AÑADIDO AQUÍ) ---
+  useEffect(() => {
+    if (usuario) {
+      registrarSuscripcionPush();
+    }
+  }, [usuario]);
+
+  const registrarSuscripcionPush = async () => {
+    // 1. Verificamos que sea un celular físico
+    if (Platform.OS === 'web') return; 
+    
+    if (Device.isDevice) {
+      // 2. Pedimos permiso al usuario
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+      
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+      
+      if (finalStatus !== 'granted') {
+        console.log('No se dio permiso para notificaciones');
+        return;
+      }
+
+      // 3. Obtenemos el Token único del celular
+      try {
+        const tokenData = await Notifications.getExpoPushTokenAsync({
+          projectId: Constants.expoConfig?.extra?.eas?.projectId,
+        });
+        const pushToken = tokenData.data;
+        console.log("MI PUSH TOKEN ES:", pushToken);
+
+        // 4. Lo guardamos en Supabase en el perfil de este usuario
+        const { error } = await supabase
+          .from('usuarios')
+          .update({ push_token: pushToken })
+          .eq('id', usuario.id);
+
+        if (error) console.error("Error guardando token:", error);
+
+      } catch (error) {
+        console.log("Error obteniendo token:", error);
+      }
+    } else {
+      console.log('Las notificaciones Push necesitan un dispositivo físico.');
+    }
+  };
+  // --------------------------------------------------------
 
   useEffect(() => {
     // Cargar preferencias de módulos si estamos en la web

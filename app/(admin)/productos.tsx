@@ -7,8 +7,6 @@ import { supabase } from '../lib/supabase';
 import { useRouter, useFocusEffect } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
-
-// COMPONENTES GS GAMES SALE
 import CustomHeader from '../../components/CustomHeader';
 import FooterNav from '../../components/FooterNav';
 

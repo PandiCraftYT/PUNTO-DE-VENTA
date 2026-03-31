@@ -84,7 +84,7 @@ export default function NuevoProductoScreen() {
             </head>
             <body>
               <div class="ticket">
-                <div class="title">GS GAMES SALE</div>
+                <div class="title">Punto de venta</div>
                 <div><strong>${nombre}</strong></div>
                 <div class="price">$${precioVenta}</div>
                 <svg id="barcode"></svg>

@@ -22,10 +22,36 @@ export default function ListaProductosScreen() {
   const [refrescando, setRefrescando] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
+  // --- NUEVA LÓGICA: ACTUALIZACIÓN EN TIEMPO REAL (WEBSOCKETS) ---
+  useEffect(() => {
+    // 1. Cargamos los productos la primera vez que se abre
+    cargarProductos();
+
+    // 2. Abrimos la conexión en tiempo real
+    const canalInventario = supabase
+      .channel(`inventario-realtime-${Date.now()}`) // Nombre único para evitar choques
+      .on(
+        'postgres_changes', 
+        { event: '*', schema: 'public', table: 'productos' }, // Escuchamos CUALQUIER cambio (INSERT, UPDATE, DELETE) en la tabla productos
+        (payload) => {
+          console.log("¡Cambio en inventario detectado!", payload);
+          // 3. Cuando detecta un cambio, vuelve a descargar la lista
+          cargarProductos(false); // Le pasamos 'false' para que no muestre la rueda de carga gigante y lo haga silencioso
+        }
+      )
+      .subscribe();
+
+    // 4. Cerramos la conexión cuando te sales de la pantalla para no gastar batería
+    return () => {
+      supabase.removeChannel(canalInventario);
+    };
+  }, []);
+
   // 1. CARGAR PRODUCTOS DESDE SUPABASE Y ORDENAR
-  const cargarProductos = async () => {
+  const cargarProductos = async (mostrarCarga: boolean = true) => {
     try {
-      setCargando(true);
+      if (mostrarCarga) setCargando(true);
+      
       const { data, error } = await supabase
         .from('productos')
         .select('*')
@@ -59,7 +85,7 @@ export default function ListaProductosScreen() {
     } catch (error: any) {
       console.error("Error cargando productos:", error.message);
     } finally {
-      setCargando(false);
+      if (mostrarCarga) setCargando(false);
       setRefrescando(false);
     }
   };
@@ -261,11 +287,10 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 5,
   },
-  // --- ESTILOS NUEVOS PARA "AGOTADO" ---
-  cardAgotado: { backgroundColor: '#fdfdfd', opacity: 0.7 }, // Se ve ligeramente transparente
-  precioAgotado: { color: '#94a3b8' }, // Precio en gris
-  stockBadgeAgotado: { backgroundColor: '#fef2f2' }, // Fondo rojo muy suave
-  stockTextAgotado: { color: '#ef4444', fontSize: 11, letterSpacing: 0.5 }, // Texto rojo "AGOTADO"
+  cardAgotado: { backgroundColor: '#fdfdfd', opacity: 0.7 },
+  precioAgotado: { color: '#94a3b8' },
+  stockBadgeAgotado: { backgroundColor: '#fef2f2' },
+  stockTextAgotado: { color: '#ef4444', fontSize: 11, letterSpacing: 0.5 },
 
   imageContainer: { width: 55, height: 55, backgroundColor: '#f8f9fa', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 15, overflow: 'hidden' },
   prodImg: { width: '100%', height: '100%', borderRadius: 10 },

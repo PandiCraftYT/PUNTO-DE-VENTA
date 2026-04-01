@@ -27,12 +27,13 @@ interface ModuleButtonProps {
 const MODULOS_DISPONIBLES = [
   { id: 'ventas', label: 'Nueva Venta', desc: 'Punto de venta', icon: 'cart', color: '#0056FF', route: '/(admin)/ventas' },
   { id: 'nuevo_gasto', label: 'Nuevo Gasto', desc: 'Salidas de dinero', icon: 'wallet', color: '#e74c3c', route: '/(admin)/nuevo_gasto' },
-  { id: 'productos', label: 'Productos', desc: 'Tu inventario', icon: 'cube', color: '#2ecc71', route: '/(admin)/productos' },
   { id: 'cotizacion', label: 'Cotizaciones', desc: 'Presupuestos PDF', icon: 'document-text', color: '#34495e', route: '/(admin)/cotizacion' },
+  { id: 'checador', label: 'Checador', desc: 'Consulta de precios', icon: 'pricetag', color: '#10b981', route: '/(admin)/checador' },
   { id: 'reportes', label: 'Reportes', desc: 'Cortes de caja', icon: 'bar-chart', color: '#e67e22', route: '/(admin)/historial' },
   { id: 'taller', label: 'Taller', desc: 'Control de equipos', icon: 'build', color: '#e74c3c', route: '/(admin)/taller' },
   { id: 'inversion', label: 'Inversión', desc: 'Gastos y compras', icon: 'cash', color: '#9b59b6', route: '/(admin)/inversion' },
   { id: 'usuarios', label: 'Usuarios', desc: 'Gestión de personal', icon: 'people', color: '#16a085', route: '/(admin)/usuarios' },
+  { id: 'productos', label: 'Productos', desc: 'Tu inventario', icon: 'cube', color: '#2ecc71', route: '/(admin)/productos' },
   { id: 'servicios', label: 'Servicios', desc: 'Catálogo de reparaciones', icon: 'construct', color: '#f39c12', route: '/(admin)/servicios' },
   { id: 'clientes', label: 'Clientes', desc: 'Directorio y lealtad', icon: 'people', color: '#3b82f6', route: '/(admin)/clientes' },
 ];

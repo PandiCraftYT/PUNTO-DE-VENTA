@@ -2,11 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, Text, View, SafeAreaView, FlatList, 
   TouchableOpacity, Modal, ScrollView, Linking, Platform, 
-  ActivityIndicator, StatusBar, TextInput, Image 
+  ActivityIndicator, StatusBar, TextInput, Image, Alert 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { useRouter } from 'expo-router';
+
+// LIBRERÍAS NUEVAS PARA GENERAR PDF
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
 
 const LOGO_BLUE = '#0056FF';
 const SUCCESS_GREEN = '#2ecc71';
@@ -29,7 +33,7 @@ export default function HistorialVentas() {
   const [diasExpandidos, setDiasExpandidos] = useState<string[]>([]);
 
   const [busqueda, setBusqueda] = useState('');
-  const [filtroTiempo, setFiltroTiempo] = useState('hoy'); // Empezamos en 'hoy' por defecto
+  const [filtroTiempo, setFiltroTiempo] = useState('hoy');
 
   useEffect(() => {
     fetchMovimientos();
@@ -72,7 +76,6 @@ export default function HistorialVentas() {
   const procesarMovimientos = (datos: any[], textoBusqueda: string, filtro: string) => {
     let filtrados = datos;
 
-    // Filtro especial para HOY
     if (filtro === 'hoy') {
       const fechaHoy = new Date().toLocaleDateString('es-MX');
       filtrados = filtrados.filter(item => 
@@ -101,10 +104,21 @@ export default function HistorialVentas() {
       if (filtro === 'hoy' || filtro === 'dias') {
         claveGrupo = fechaObj.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
       } else if (filtro === 'semanas') {
+        // --- AQUÍ ARREGLAMOS PARA QUE NO DIGA "SEMANA 30" ---
         const dia = fechaObj.getDay();
         const diff = fechaObj.getDate() - dia + (dia === 0 ? -6 : 1);
         const lunes = new Date(fechaObj.setDate(diff));
-        claveGrupo = `Semana ${lunes.toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })}`;
+        const domingo = new Date(lunes);
+        domingo.setDate(lunes.getDate() + 6);
+        
+        const mesLunes = lunes.toLocaleDateString('es-MX', { month: 'short' });
+        const mesDomingo = domingo.toLocaleDateString('es-MX', { month: 'short' });
+        
+        if (mesLunes === mesDomingo) {
+          claveGrupo = `Semana del ${lunes.getDate()} al ${domingo.getDate()} de ${mesLunes}`;
+        } else {
+          claveGrupo = `Semana del ${lunes.getDate()} de ${mesLunes} al ${domingo.getDate()} de ${mesDomingo}`;
+        }
       } else if (filtro === 'meses') {
         claveGrupo = fechaObj.toLocaleDateString('es-MX', { month: 'long', year: 'numeric' });
       } else if (filtro === 'anos') {
@@ -132,11 +146,7 @@ export default function HistorialVentas() {
       return acc;
     }, {});
 
-    setTotalesPeriodo({
-      ingresos: globalIngresos,
-      gastos: globalGastos,
-      neto: globalIngresos - globalGastos
-    });
+    setTotalesPeriodo({ ingresos: globalIngresos, gastos: globalGastos, neto: globalIngresos - globalGastos });
 
     const listaAgrupada = Object.keys(grupos).map(fecha => ({
       fecha,
@@ -167,6 +177,109 @@ export default function HistorialVentas() {
       android: `geo:0,0?q=${lat},${lng}`
     }) || `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
     Linking.openURL(url);
+  };
+
+  // --- NUEVA FUNCIÓN: GENERAR REPORTE EN PDF ---
+  const generarPDFGrupo = async (grupo: any) => {
+    try {
+      let filasHTML = grupo.datos.map((mov: any) => {
+        const esVenta = mov.tipo_registro === 'venta';
+        const fechaStr = new Date(mov.created_at).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
+        const tipo = esVenta ? 'INGRESO' : 'EGRESO';
+        const detalle = esVenta ? `Atendido por: ${mov.vendedor_nombre || 'Admin'}` : mov.concepto;
+        const metodo = esVenta ? mov.metodo_pago : mov.categoria;
+        const monto = parseFloat(esVenta ? mov.total : mov.monto).toFixed(2);
+        const colorClass = esVenta ? 'val-in' : 'val-out';
+        const signo = esVenta ? '+' : '-';
+
+        return `
+          <tr>
+            <td>${fechaStr}</td>
+            <td><strong>${tipo}</strong></td>
+            <td>${detalle}</td>
+            <td>${metodo || '-'}</td>
+            <td class="${colorClass}">${signo}$${monto}</td>
+          </tr>
+        `;
+      }).join('');
+
+      const htmlContent = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8">
+            <style>
+              body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #333; }
+              .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; }
+              .title { font-size: 28px; font-weight: 900; color: #0056FF; margin-bottom: 5px; }
+              .subtitle { font-size: 16px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+              .summary { display: flex; justify-content: space-between; margin-bottom: 40px; }
+              .box { padding: 20px; border-radius: 12px; width: 30%; text-align: center; font-weight: bold; }
+              .box-in { background-color: #f0fdf4; color: #16a34a; border: 1px solid #dcfce7; }
+              .box-out { background-color: #fef2f2; color: #e74c3c; border: 1px solid #fee2e2; }
+              .box-net { background-color: #f0f5ff; color: #0056FF; border: 1px solid #dbeafe; }
+              .box-title { font-size: 12px; margin-bottom: 5px; letter-spacing: 1px; color: inherit; opacity: 0.8; }
+              .box-amount { font-size: 24px; }
+              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+              th, td { padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: left; font-size: 14px; }
+              th { background-color: #f8fafc; color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: bold; border-bottom: 2px solid #e2e8f0; }
+              .val-in { color: #16a34a; font-weight: bold; }
+              .val-out { color: #e74c3c; font-weight: bold; }
+              .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #94a3b8; }
+            </style>
+          </head>
+          <body>
+            <div class="header">
+              <div class="title">REPORTE DE MOVIMIENTOS</div>
+              <div class="subtitle">PERÍODO: ${grupo.fecha}</div>
+            </div>
+            
+            <div class="summary">
+              <div class="box box-in">
+                <div class="box-title">TOTAL INGRESOS</div>
+                <div class="box-amount">$${grupo.totalIngresos.toFixed(2)}</div>
+              </div>
+              <div class="box box-out">
+                <div class="box-title">TOTAL GASTOS</div>
+                <div class="box-amount">$${grupo.totalEgresos.toFixed(2)}</div>
+              </div>
+              <div class="box box-net">
+                <div class="box-title">GANANCIA NETA</div>
+                <div class="box-amount">$${grupo.totalDia.toFixed(2)}</div>
+              </div>
+            </div>
+
+            <table>
+              <thead>
+                <tr>
+                  <th>Fecha y Hora</th>
+                  <th>Movimiento</th>
+                  <th>Detalle / Concepto</th>
+                  <th>Método / Categoría</th>
+                  <th>Monto</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${filasHTML}
+              </tbody>
+            </table>
+            
+            <div class="footer">
+              Generado automáticamente por el Sistema de Administración GS GAMES SALE.
+            </div>
+          </body>
+        </html>
+      `;
+
+      if (Platform.OS === 'web') {
+        await Print.printAsync({ html: htmlContent });
+      } else {
+        const { uri } = await Print.printToFileAsync({ html: htmlContent });
+        await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+      }
+    } catch (error) {
+      Alert.alert("Error", "No se pudo generar el reporte PDF.");
+    }
   };
 
   const compartirWhatsApp = () => {
@@ -203,7 +316,7 @@ export default function HistorialVentas() {
     Linking.openURL(`https://wa.me/?text=${encodeURIComponent(mensaje)}`);
   };
 
-  const imprimirPDF = () => {
+  const imprimirTicket = () => {
     if (Platform.OS === 'web') {
       window.print();
     } else {
@@ -277,7 +390,6 @@ export default function HistorialVentas() {
           )}
         </View>
 
-        {/* BOTONES DE FILTRO (AHORA INCLUYE HOY) */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.filtrosScroll} contentContainerStyle={styles.filtrosContainer}>
           <TouchableOpacity style={[styles.filtroBtn, filtroTiempo === 'hoy' && styles.filtroBtnActivo]} onPress={() => setFiltroTiempo('hoy')}>
             <Text style={[styles.filtroText, filtroTiempo === 'hoy' && styles.filtroTextActivo]}>Hoy</Text>
@@ -309,7 +421,6 @@ export default function HistorialVentas() {
           contentContainerStyle={styles.listContent}
           ListHeaderComponent={
             <View>
-              {/* --- TARJETAS DE RESUMEN GLOBALES --- */}
               <View style={styles.resumenGlobalRow}>
                 <View style={[styles.resumenCard, { borderColor: '#dcfce7', backgroundColor: '#f0fdf4' }]}>
                   <Text style={[styles.resumenLabel, { color: '#16a34a' }]}>INGRESOS</Text>
@@ -321,7 +432,6 @@ export default function HistorialVentas() {
                 </View>
               </View>
 
-              {/* --- GRÁFICA DE BARRAS NATIVA --- */}
               {datosGrafica.length > 0 && filtroTiempo !== 'hoy' && (
                 <View style={styles.graficaContainer}>
                   <Text style={styles.graficaTitulo}>Ganancia Neta ({filtroTiempo.toUpperCase()})</Text>
@@ -350,9 +460,20 @@ export default function HistorialVentas() {
             </View>
           }
           renderItem={({ item }) => {
-            // SEPARAMOS VENTAS Y GASTOS DEL DÍA
-            const ventasDelDia = item.datos.filter((d: any) => d.tipo_registro === 'venta');
-            const gastosDelDia = item.datos.filter((d: any) => d.tipo_registro === 'gasto');
+            
+            // --- NUEVO LÓGICA: AGRUPAR POR DÍAS DENTRO DEL BLOQUE ---
+            const movimientosPorDia = item.datos.reduce((acc: any, mov: any) => {
+              const d = new Date(mov.created_at);
+              const diaStr = d.toLocaleDateString('es-MX', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+              const diaCapitalizado = diaStr.charAt(0).toUpperCase() + diaStr.slice(1);
+              
+              if (!acc[diaCapitalizado]) acc[diaCapitalizado] = { ventas: [], gastos: [] };
+              
+              if (mov.tipo_registro === 'venta') acc[diaCapitalizado].ventas.push(mov);
+              else acc[diaCapitalizado].gastos.push(mov);
+              
+              return acc;
+            }, {});
 
             return (
               <View style={styles.diaContainer}>
@@ -385,28 +506,46 @@ export default function HistorialVentas() {
                 {diasExpandidos.includes(item.fecha) && (
                   <View style={styles.listaVentas}>
                     
-                    {/* SECCIÓN DE VENTAS */}
-                    {ventasDelDia.length > 0 && (
-                      <View style={{ marginBottom: 10 }}>
-                        <View style={styles.divisorSeccion}>
-                          <View style={[styles.puntoColor, { backgroundColor: SUCCESS_GREEN }]} />
-                          <Text style={styles.tituloSeccion}>INGRESOS (VENTAS)</Text>
-                        </View>
-                        {ventasDelDia.map((v: any) => renderMovimientoItem(v))}
-                      </View>
-                    )}
+                    {/* BOTÓN PARA GENERAR REPORTE PDF DE ESTE PERIODO */}
+                    <TouchableOpacity style={styles.btnGenerarPdfFull} onPress={() => generarPDFGrupo(item)}>
+                      <Ionicons name="document-text" size={20} color="#fff" />
+                      <Text style={styles.btnGenerarPdfText}>Descargar Reporte en PDF</Text>
+                    </TouchableOpacity>
 
-                    {/* SECCIÓN DE GASTOS */}
-                    {gastosDelDia.length > 0 && (
-                      <View style={{ marginBottom: 5 }}>
-                        <View style={styles.divisorSeccion}>
-                          <View style={[styles.puntoColor, { backgroundColor: EXPENSE_RED }]} />
-                          <Text style={[styles.tituloSeccion, { color: EXPENSE_RED }]}>EGRESOS (GASTOS)</Text>
-                        </View>
-                        {gastosDelDia.map((v: any) => renderMovimientoItem(v))}
-                      </View>
-                    )}
+                    {/* RENDERIZAMOS LOS DÍAS SEPARADOS */}
+                    {Object.keys(movimientosPorDia).map(diaKey => {
+                      const diaData = movimientosPorDia[diaKey];
+                      return (
+                        <View key={diaKey} style={styles.subDiaContainer}>
+                          {filtroTiempo !== 'hoy' && filtroTiempo !== 'dias' && (
+                            <View style={styles.subDiaHeader}>
+                              <Ionicons name="calendar-outline" size={16} color="#64748b" />
+                              <Text style={styles.subDiaTitulo}>{diaKey}</Text>
+                            </View>
+                          )}
 
+                          {diaData.ventas.length > 0 && (
+                            <View style={{ marginBottom: 10 }}>
+                              <View style={styles.divisorSeccion}>
+                                <View style={[styles.puntoColor, { backgroundColor: SUCCESS_GREEN }]} />
+                                <Text style={styles.tituloSeccion}>INGRESOS (VENTAS)</Text>
+                              </View>
+                              {diaData.ventas.map((v: any) => renderMovimientoItem(v))}
+                            </View>
+                          )}
+
+                          {diaData.gastos.length > 0 && (
+                            <View style={{ marginBottom: 5 }}>
+                              <View style={styles.divisorSeccion}>
+                                <View style={[styles.puntoColor, { backgroundColor: EXPENSE_RED }]} />
+                                <Text style={[styles.tituloSeccion, { color: EXPENSE_RED }]}>EGRESOS (GASTOS)</Text>
+                              </View>
+                              {diaData.gastos.map((v: any) => renderMovimientoItem(v))}
+                            </View>
+                          )}
+                        </View>
+                      )
+                    })}
                   </View>
                 )}
               </View>
@@ -550,7 +689,7 @@ export default function HistorialVentas() {
                     <Text style={styles.actionBtnText}>WhatsApp</Text>
                   </TouchableOpacity>
 
-                  <TouchableOpacity style={styles.actionBtnPdf} onPress={imprimirPDF}>
+                  <TouchableOpacity style={styles.actionBtnPdf} onPress={imprimirTicket}>
                     <Ionicons name="print" size={18} color="#333" style={{ marginRight: 6 }} />
                     <Text style={[styles.actionBtnText, { color: '#333' }]}>PDF / Imprimir</Text>
                   </TouchableOpacity>
@@ -594,7 +733,6 @@ const styles = StyleSheet.create({
   filtroText: { fontSize: 12, color: '#64748b', fontWeight: 'bold' },
   filtroTextActivo: { color: '#fff' },
 
-  // TARJETAS SUPERIORES
   resumenGlobalRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 20 },
   resumenCard: { flex: 0.48, backgroundColor: '#fff', padding: 15, borderRadius: 16, borderWidth: 1, alignItems: 'center' },
   resumenLabel: { fontSize: 11, fontWeight: '800', marginBottom: 5, letterSpacing: 0.5 },
@@ -622,13 +760,18 @@ const styles = StyleSheet.create({
   iconDate: { backgroundColor: '#f0f5ff', padding: 8, borderRadius: 10, marginRight: 12 },
   diaInfo: { flexDirection: 'row', alignItems: 'center' },
   diaTexto: { fontSize: 15, fontWeight: '800', color: '#1e293b', textTransform: 'capitalize' },
-  
   diaTotalDinero: { fontSize: 18, fontWeight: '900', color: LOGO_BLUE },
   diaBadgeText: { fontSize: 11, fontWeight: '600', color: '#94a3b8', marginTop: 2 },
   
   listaVentas: { backgroundColor: '#fdfdfd', marginTop: -15, paddingTop: 25, paddingHorizontal: 15, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, borderWidth: 1, borderColor: '#f1f5f9', borderTopWidth: 0 },
   
-  // TÍTULOS DE SECCIÓN DENTRO DEL DÍA
+  // ESTILOS NUEVOS PARA PDF Y SUB-AGRUPACIÓN
+  btnGenerarPdfFull: { flexDirection: 'row', backgroundColor: '#334155', paddingVertical: 12, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
+  btnGenerarPdfText: { color: '#fff', fontWeight: 'bold', fontSize: 14, marginLeft: 8 },
+  subDiaContainer: { marginBottom: 15, backgroundColor: '#fff', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },
+  subDiaHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, backgroundColor: '#f8fafc', padding: 8, borderRadius: 8 },
+  subDiaTitulo: { fontSize: 13, fontWeight: 'bold', color: '#64748b', marginLeft: 8, textTransform: 'capitalize' },
+
   divisorSeccion: { flexDirection: 'row', alignItems: 'center', marginBottom: 10, marginTop: 5 },
   puntoColor: { width: 8, height: 8, borderRadius: 4, marginRight: 6 },
   tituloSeccion: { fontSize: 12, fontWeight: '800', color: SUCCESS_GREEN, letterSpacing: 0.5 },

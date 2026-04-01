@@ -117,10 +117,12 @@ export default function AdminDashboard() {
     if (usuario) {
       cargarDatosDashboard();
 
+      // Le agregamos Date.now() para que el nombre siempre sea único y no choque
       const canal = supabase
-        .channel('dashboard-realtime')
+        .channel(`dashboard-realtime-${Date.now()}`) 
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ventas' }, () => {
-          cargarDatosDashboard();
+          // Tu función de recargar datos (ej. cargarDatosDashboard o fetchMovimientos)
+          cargarDatosDashboard(); 
         })
         .subscribe();
 

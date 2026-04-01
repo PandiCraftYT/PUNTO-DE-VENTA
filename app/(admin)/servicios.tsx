@@ -12,6 +12,9 @@ import { useAuth } from '../lib/auth_context';
 import CustomHeader from '../../components/CustomHeader';
 import FooterNav from '../../components/FooterNav';
 
+// --- IMPORTAMOS NUESTRA HERRAMIENTA ---
+import { formatoMoneda } from '../lib/helpers';
+
 const LOGO_BLUE = '#0056FF';
 
 export default function CatalogoServiciosScreen() {
@@ -179,7 +182,8 @@ export default function CatalogoServiciosScreen() {
               </View>
               <View style={{ flex: 1, paddingRight: 10 }}>
                 <Text style={styles.servicioNombre}>{item.nombre}</Text>
-                <Text style={styles.servicioPrecio}>Precio fijo: ${parseFloat(item.precio_venta).toFixed(2)}</Text>
+                {/* --- APLICAMOS EL FORMATO DE MONEDA AQUÍ --- */}
+                <Text style={styles.servicioPrecio}>Precio fijo: {formatoMoneda(item.precio_venta)}</Text>
               </View>
               
               <View style={{ flexDirection: 'row' }}>

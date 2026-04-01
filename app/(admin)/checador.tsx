@@ -8,6 +8,9 @@ import { useRouter } from 'expo-router';
 import { CameraView, useCameraPermissions } from 'expo-camera'; 
 import { supabase } from '../lib/supabase';
 
+// --- IMPORTAMOS NUESTRA HERRAMIENTA ---
+import { formatoMoneda } from '../lib/helpers';
+
 const LOGO_BLUE = '#0056FF';
 
 export default function ChecadorScreen() {
@@ -200,7 +203,8 @@ export default function ChecadorScreen() {
                 <View style={styles.divisor} />
                 
                 <Text style={styles.precioLabel}>PRECIO DE VENTA</Text>
-                <Text style={styles.precioGrande}>${parseFloat(productoEncontrado.precio_venta).toFixed(2)}</Text>
+                {/* --- APLICAMOS EL FORMATO DE MONEDA AQUÍ --- */}
+                <Text style={styles.precioGrande}>{formatoMoneda(productoEncontrado.precio_venta)}</Text>
 
                 <View style={styles.infoRow}>
                   <View style={styles.infoPill}>

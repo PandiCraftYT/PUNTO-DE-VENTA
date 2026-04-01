@@ -12,6 +12,10 @@ import { useRouter } from 'expo-router';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 
+// --- IMPORTAMOS NUESTRAS HERRAMIENTAS ---
+import { formatoMoneda } from '../lib/helpers';
+import { generarReportePDF } from '../lib/pdfGenerator'; // Importación de nuestra nueva herramienta PDF
+
 const LOGO_BLUE = '#0056FF';
 const SUCCESS_GREEN = '#2ecc71';
 const EXPENSE_RED = '#e74c3c';
@@ -104,7 +108,6 @@ export default function HistorialVentas() {
       if (filtro === 'hoy' || filtro === 'dias') {
         claveGrupo = fechaObj.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' });
       } else if (filtro === 'semanas') {
-        // --- AQUÍ ARREGLAMOS PARA QUE NO DIGA "SEMANA 30" ---
         const dia = fechaObj.getDay();
         const diff = fechaObj.getDate() - dia + (dia === 0 ? -6 : 1);
         const lunes = new Date(fechaObj.setDate(diff));
@@ -179,109 +182,6 @@ export default function HistorialVentas() {
     Linking.openURL(url);
   };
 
-  // --- NUEVA FUNCIÓN: GENERAR REPORTE EN PDF ---
-  const generarPDFGrupo = async (grupo: any) => {
-    try {
-      let filasHTML = grupo.datos.map((mov: any) => {
-        const esVenta = mov.tipo_registro === 'venta';
-        const fechaStr = new Date(mov.created_at).toLocaleString('es-MX', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' });
-        const tipo = esVenta ? 'INGRESO' : 'EGRESO';
-        const detalle = esVenta ? `Atendido por: ${mov.vendedor_nombre || 'Admin'}` : mov.concepto;
-        const metodo = esVenta ? mov.metodo_pago : mov.categoria;
-        const monto = parseFloat(esVenta ? mov.total : mov.monto).toFixed(2);
-        const colorClass = esVenta ? 'val-in' : 'val-out';
-        const signo = esVenta ? '+' : '-';
-
-        return `
-          <tr>
-            <td>${fechaStr}</td>
-            <td><strong>${tipo}</strong></td>
-            <td>${detalle}</td>
-            <td>${metodo || '-'}</td>
-            <td class="${colorClass}">${signo}$${monto}</td>
-          </tr>
-        `;
-      }).join('');
-
-      const htmlContent = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8">
-            <style>
-              body { font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif; padding: 40px; color: #333; }
-              .header { text-align: center; margin-bottom: 40px; border-bottom: 2px solid #f1f5f9; padding-bottom: 20px; }
-              .title { font-size: 28px; font-weight: 900; color: #0056FF; margin-bottom: 5px; }
-              .subtitle { font-size: 16px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
-              .summary { display: flex; justify-content: space-between; margin-bottom: 40px; }
-              .box { padding: 20px; border-radius: 12px; width: 30%; text-align: center; font-weight: bold; }
-              .box-in { background-color: #f0fdf4; color: #16a34a; border: 1px solid #dcfce7; }
-              .box-out { background-color: #fef2f2; color: #e74c3c; border: 1px solid #fee2e2; }
-              .box-net { background-color: #f0f5ff; color: #0056FF; border: 1px solid #dbeafe; }
-              .box-title { font-size: 12px; margin-bottom: 5px; letter-spacing: 1px; color: inherit; opacity: 0.8; }
-              .box-amount { font-size: 24px; }
-              table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-              th, td { padding: 15px 10px; border-bottom: 1px solid #f1f5f9; text-align: left; font-size: 14px; }
-              th { background-color: #f8fafc; color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: bold; border-bottom: 2px solid #e2e8f0; }
-              .val-in { color: #16a34a; font-weight: bold; }
-              .val-out { color: #e74c3c; font-weight: bold; }
-              .footer { text-align: center; margin-top: 50px; font-size: 12px; color: #94a3b8; }
-            </style>
-          </head>
-          <body>
-            <div class="header">
-              <div class="title">REPORTE DE MOVIMIENTOS</div>
-              <div class="subtitle">PERÍODO: ${grupo.fecha}</div>
-            </div>
-            
-            <div class="summary">
-              <div class="box box-in">
-                <div class="box-title">TOTAL INGRESOS</div>
-                <div class="box-amount">$${grupo.totalIngresos.toFixed(2)}</div>
-              </div>
-              <div class="box box-out">
-                <div class="box-title">TOTAL GASTOS</div>
-                <div class="box-amount">$${grupo.totalEgresos.toFixed(2)}</div>
-              </div>
-              <div class="box box-net">
-                <div class="box-title">GANANCIA NETA</div>
-                <div class="box-amount">$${grupo.totalDia.toFixed(2)}</div>
-              </div>
-            </div>
-
-            <table>
-              <thead>
-                <tr>
-                  <th>Fecha y Hora</th>
-                  <th>Movimiento</th>
-                  <th>Detalle / Concepto</th>
-                  <th>Método / Categoría</th>
-                  <th>Monto</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${filasHTML}
-              </tbody>
-            </table>
-            
-            <div class="footer">
-              Generado automáticamente por el Sistema de Administración GS GAMES SALE.
-            </div>
-          </body>
-        </html>
-      `;
-
-      if (Platform.OS === 'web') {
-        await Print.printAsync({ html: htmlContent });
-      } else {
-        const { uri } = await Print.printToFileAsync({ html: htmlContent });
-        await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
-      }
-    } catch (error) {
-      Alert.alert("Error", "No se pudo generar el reporte PDF.");
-    }
-  };
-
   const compartirWhatsApp = () => {
     if (!movSeleccionado) return;
     
@@ -291,26 +191,26 @@ export default function HistorialVentas() {
       let productosTexto = '';
       if (movSeleccionado.productos_json && movSeleccionado.productos_json.length > 0) {
         productosTexto = movSeleccionado.productos_json.map((p: any) => 
-          `• ${p.cantidad_venta || 1}x ${p.nombre} - $${((p.precio_venta || 0) * (p.cantidad_venta || 1)).toFixed(2)}`
+          `• ${p.cantidad_venta || 1}x ${p.nombre} - ${formatoMoneda((p.precio_venta || 0) * (p.cantidad_venta || 1))}`
         ).join('\n');
       } else {
-        productosTexto = `• 1x Reparación / Servicio - $${parseFloat(movSeleccionado.total).toFixed(2)}`;
+        productosTexto = `• 1x Reparación / Servicio - ${formatoMoneda(movSeleccionado.total)}`;
       }
 
-      mensaje = `*GS GAMES SALE - TICKET DE VENTA*\n\n` +
+      mensaje = `*Punto de venta - TICKET DE VENTA*\n\n` +
         `📅 Fecha: ${new Date(movSeleccionado.created_at).toLocaleString('es-MX')}\n` +
         `👤 Atendido por: ${movSeleccionado.vendedor_nombre}\n` +
         `💳 Pago: ${movSeleccionado.metodo_pago || 'EFECTIVO'}\n\n` +
         `*DETALLES:*\n${productosTexto}\n\n` +
-        `*TOTAL PAGADO: $${parseFloat(movSeleccionado.total).toFixed(2)}*\n\n` +
+        `*TOTAL PAGADO: ${formatoMoneda(movSeleccionado.total)}*\n\n` +
         `¡Gracias por tu compra! 🎮`;
     } else {
-      mensaje = `*GS GAMES SALE - COMPROBANTE DE SALIDA*\n\n` +
+      mensaje = `*Punto de venta - COMPROBANTE DE SALIDA*\n\n` +
         `📅 Fecha: ${new Date(movSeleccionado.created_at).toLocaleString('es-MX')}\n` +
         `👤 Registrado por: ${movSeleccionado.registrado_por}\n` +
         `🏷 Categoría: ${movSeleccionado.categoria}\n\n` +
         `*CONCEPTO:*\n• ${movSeleccionado.concepto}\n\n` +
-        `*TOTAL SALIDA: $${parseFloat(movSeleccionado.monto).toFixed(2)}*`;
+        `*TOTAL SALIDA: ${formatoMoneda(movSeleccionado.monto)}*`;
     }
 
     Linking.openURL(`https://wa.me/?text=${encodeURIComponent(mensaje)}`);
@@ -352,8 +252,9 @@ export default function HistorialVentas() {
           {esGasto && <Text style={{ fontSize: 10, color: '#333', marginTop: 2 }}>{mov.concepto}</Text>}
         </View>
         <View style={styles.ventaMonto}>
+          {/* Formateamos la lista de movimientos */}
           <Text style={[styles.ventaTotal, esGasto && { color: EXPENSE_RED }]}>
-            {esGasto ? `-$${parseFloat(mov.monto).toFixed(2)}` : `+$${parseFloat(mov.total).toFixed(2)}`}
+            {esGasto ? `-${formatoMoneda(mov.monto)}` : `+${formatoMoneda(mov.total)}`}
           </Text>
           <Ionicons name="chevron-forward" size={16} color="#cbd5e1" />
         </View>
@@ -424,11 +325,11 @@ export default function HistorialVentas() {
               <View style={styles.resumenGlobalRow}>
                 <View style={[styles.resumenCard, { borderColor: '#dcfce7', backgroundColor: '#f0fdf4' }]}>
                   <Text style={[styles.resumenLabel, { color: '#16a34a' }]}>INGRESOS</Text>
-                  <Text style={[styles.resumenMonto, { color: '#16a34a' }]}>${totalesPeriodo.ingresos.toFixed(2)}</Text>
+                  <Text style={[styles.resumenMonto, { color: '#16a34a' }]}>{formatoMoneda(totalesPeriodo.ingresos)}</Text>
                 </View>
                 <View style={[styles.resumenCard, { borderColor: '#fee2e2', backgroundColor: '#fef2f2' }]}>
                   <Text style={[styles.resumenLabel, { color: EXPENSE_RED }]}>GASTOS</Text>
-                  <Text style={[styles.resumenMonto, { color: EXPENSE_RED }]}>${totalesPeriodo.gastos.toFixed(2)}</Text>
+                  <Text style={[styles.resumenMonto, { color: EXPENSE_RED }]}>{formatoMoneda(totalesPeriodo.gastos)}</Text>
                 </View>
               </View>
 
@@ -440,6 +341,7 @@ export default function HistorialVentas() {
                       const alturaPorcentaje = item.totalDia > 0 ? (item.totalDia / maxVentaGrafica) * 100 : 0;
                       return (
                         <View key={index} style={styles.graficaBarraWrapper}>
+                          {/* Abreviamos para que quepa en la gráfica si es muy grande */}
                           <Text style={styles.graficaValor}>${Math.round(item.totalDia)}</Text>
                           <View style={styles.graficaPista}>
                             <View style={[styles.graficaRelleno, { height: `${alturaPorcentaje}%`, backgroundColor: item.totalDia >= 0 ? LOGO_BLUE : EXPENSE_RED }]} />
@@ -461,7 +363,6 @@ export default function HistorialVentas() {
           }
           renderItem={({ item }) => {
             
-            // --- NUEVO LÓGICA: AGRUPAR POR DÍAS DENTRO DEL BLOQUE ---
             const movimientosPorDia = item.datos.reduce((acc: any, mov: any) => {
               const d = new Date(mov.created_at);
               const diaStr = d.toLocaleDateString('es-MX', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
@@ -489,15 +390,15 @@ export default function HistorialVentas() {
                     <View>
                       <Text style={styles.diaTexto}>{item.fecha}</Text>
                       <View style={{ flexDirection: 'row', marginTop: 2 }}>
-                        <Text style={{ fontSize: 10, color: SUCCESS_GREEN, marginRight: 8 }}>In: ${item.totalIngresos.toFixed(2)}</Text>
-                        <Text style={{ fontSize: 10, color: EXPENSE_RED }}>Out: ${item.totalEgresos.toFixed(2)}</Text>
+                        <Text style={{ fontSize: 10, color: SUCCESS_GREEN, marginRight: 8 }}>In: {formatoMoneda(item.totalIngresos)}</Text>
+                        <Text style={{ fontSize: 10, color: EXPENSE_RED }}>Out: {formatoMoneda(item.totalEgresos)}</Text>
                       </View>
                     </View>
                   </View>
                   
                   <View style={{ alignItems: 'flex-end' }}>
                     <Text style={[styles.diaTotalDinero, item.totalDia < 0 && { color: EXPENSE_RED }]}>
-                      ${item.totalDia.toFixed(2)}
+                      {formatoMoneda(item.totalDia)}
                     </Text>
                     <Text style={styles.diaBadgeText}>Neto ({item.datos.length} movs)</Text>
                   </View>
@@ -506,13 +407,12 @@ export default function HistorialVentas() {
                 {diasExpandidos.includes(item.fecha) && (
                   <View style={styles.listaVentas}>
                     
-                    {/* BOTÓN PARA GENERAR REPORTE PDF DE ESTE PERIODO */}
-                    <TouchableOpacity style={styles.btnGenerarPdfFull} onPress={() => generarPDFGrupo(item)}>
+                    {/* Botón actualizado para usar nuestro generador PDF externo */}
+                    <TouchableOpacity style={styles.btnGenerarPdfFull} onPress={() => generarReportePDF(item)}>
                       <Ionicons name="document-text" size={20} color="#fff" />
                       <Text style={styles.btnGenerarPdfText}>Descargar Reporte en PDF</Text>
                     </TouchableOpacity>
 
-                    {/* RENDERIZAMOS LOS DÍAS SEPARADOS */}
                     {Object.keys(movimientosPorDia).map(diaKey => {
                       const diaData = movimientosPorDia[diaKey];
                       return (
@@ -554,7 +454,6 @@ export default function HistorialVentas() {
         />
       )}
 
-      {/* MODAL DINÁMICO (TICKET O GASTO) */}
       <Modal visible={modalVisible} animationType="slide" transparent={true}>
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
@@ -604,7 +503,8 @@ export default function HistorialVentas() {
                       <View style={styles.divider} />
                       <View style={styles.totalFila}>
                         <Text style={styles.totalLabel}>TOTAL SALIDA</Text>
-                        <Text style={[styles.totalMonto, { color: EXPENSE_RED }]}>${parseFloat(movSeleccionado.monto).toFixed(2)}</Text>
+                        {/* Formato de dinero en modal de gasto */}
+                        <Text style={[styles.totalMonto, { color: EXPENSE_RED }]}>{formatoMoneda(movSeleccionado.monto)}</Text>
                       </View>
                     </View>
                   </View>
@@ -643,20 +543,22 @@ export default function HistorialVentas() {
                         movSeleccionado.productos_json.map((p: any, i: number) => (
                           <View key={i} style={styles.productoFila}>
                             <Text style={styles.pNombre}>{p.cantidad_venta || 1}x {p.nombre}</Text>
-                            <Text style={styles.pPrecio}>${((p.precio_venta || 0) * (p.cantidad_venta || 1)).toFixed(2)}</Text>
+                            {/* Formato de dinero en la lista de items */}
+                            <Text style={styles.pPrecio}>{formatoMoneda((p.precio_venta || 0) * (p.cantidad_venta || 1))}</Text>
                           </View>
                         ))
                       ) : (
                         <View style={styles.productoFila}>
                           <Text style={styles.pNombre}>1x Reparación / Servicio de Taller</Text>
-                          <Text style={styles.pPrecio}>${parseFloat(movSeleccionado.total).toFixed(2)}</Text>
+                          <Text style={styles.pPrecio}>{formatoMoneda(movSeleccionado.total)}</Text>
                         </View>
                       )}
 
                       <View style={styles.divider} />
                       <View style={styles.totalFila}>
                         <Text style={styles.totalLabel}>TOTAL INGRESADO</Text>
-                        <Text style={styles.totalMonto}>${parseFloat(movSeleccionado.total).toFixed(2)}</Text>
+                        {/* Formato de dinero en total de ingreso */}
+                        <Text style={styles.totalMonto}>{formatoMoneda(movSeleccionado.total)}</Text>
                       </View>
                     </View>
 
@@ -765,7 +667,6 @@ const styles = StyleSheet.create({
   
   listaVentas: { backgroundColor: '#fdfdfd', marginTop: -15, paddingTop: 25, paddingHorizontal: 15, borderBottomLeftRadius: 16, borderBottomRightRadius: 16, borderWidth: 1, borderColor: '#f1f5f9', borderTopWidth: 0 },
   
-  // ESTILOS NUEVOS PARA PDF Y SUB-AGRUPACIÓN
   btnGenerarPdfFull: { flexDirection: 'row', backgroundColor: '#334155', paddingVertical: 12, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
   btnGenerarPdfText: { color: '#fff', fontWeight: 'bold', fontSize: 14, marginLeft: 8 },
   subDiaContainer: { marginBottom: 15, backgroundColor: '#fff', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0' },

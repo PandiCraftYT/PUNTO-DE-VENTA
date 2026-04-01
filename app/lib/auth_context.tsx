@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useEffect } from 'react';
+import { Alert, Platform } from 'react-native'; // Importamos Alert y Platform para el aviso de despido
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { supabase } from './supabase';
 
@@ -56,7 +57,42 @@ export const AuthProvider = ({ children }: any) => {
 
   }, [usuario]); 
 
-  // 3. FUNCIÓN PARA ACTUALIZAR USUARIO EN EL LOGIN
+  // --- 3. NUEVO: EXPULSIÓN INSTANTÁNEA SI EL USUARIO ES ELIMINADO ---
+  useEffect(() => {
+    if (!usuario || !usuario.id) return;
+
+    const canalDespido = supabase
+      .channel(`guardian-${usuario.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'DELETE', schema: 'public', table: 'usuarios' },
+        (payload) => {
+          // Si el ID del usuario que acaban de borrar de la base de datos es el mío...
+          if (payload.old && payload.old.id === usuario.id) {
+            
+            // 1. Le mostramos un mensaje en la cara
+            if (Platform.OS === 'web') {
+              window.alert("Tu acceso ha sido revocado. Tu sesión se cerrará ahora.");
+            } else {
+              Alert.alert(
+                "Acceso Revocado", 
+                "Tu cuenta ha sido eliminada por un administrador. Tu sesión se cerrará de inmediato."
+              );
+            }
+            
+            // 2. Lo corremos del sistema borrando su sesión
+            cerrarSesion();
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canalDespido);
+    };
+  }, [usuario]);
+
+  // 4. FUNCIÓN PARA ACTUALIZAR USUARIO EN EL LOGIN
   const actualizarUsuario = async (nuevoUsuario: any) => {
     try {
       if (nuevoUsuario) {
@@ -72,7 +108,7 @@ export const AuthProvider = ({ children }: any) => {
     }
   };
 
-  // 4. FUNCIÓN PARA CERRAR SESIÓN OFICIALMENTE
+  // 5. FUNCIÓN PARA CERRAR SESIÓN OFICIALMENTE
   const cerrarSesion = async () => {
     try {
       await AsyncStorage.removeItem('@sesion_usuario');

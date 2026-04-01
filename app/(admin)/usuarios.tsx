@@ -5,13 +5,14 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
-import { useRouter } from 'expo-router'; // Importamos el router
+import { useRouter } from 'expo-router'; 
 import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
 
 const LOGO_BLUE = '#0056FF';
+const DANGER_RED = '#ff4757'; // Color rojo para el botón de despedir
 
 export default function GestionUsuariosScreen() {
-  const router = useRouter(); // Inicializamos router para la flecha de atrás
+  const router = useRouter(); 
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -116,11 +117,43 @@ export default function GestionUsuariosScreen() {
     }
   };
 
+  // --- LÓGICA PARA ELIMINAR / DESPEDIR USUARIO ---
+  const confirmarEliminar = () => {
+    if (Platform.OS === 'web') {
+      const seguro = window.confirm(`¿Estás seguro de que quieres eliminar a ${nombre}? Se le revocará el acceso de inmediato.`);
+      if (seguro) handleEliminar();
+    } else {
+      Alert.alert(
+        "Despedir Empleado",
+        `¿Estás seguro de que quieres eliminar a ${nombre}? Se le revocará el acceso de inmediato.`,
+        [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Sí, Eliminar", style: "destructive", onPress: handleEliminar }
+        ]
+      );
+    }
+  };
+
+  const handleEliminar = async () => {
+    if (!userId) return;
+    setProcesando(true);
+    try {
+      const { error } = await supabase.from('usuarios').delete().eq('id', userId);
+      if (error) throw error;
+      
+      setModalVisible(false);
+      if (Platform.OS === 'web') window.alert('Usuario eliminado correctamente.');
+    } catch (error: any) {
+      Alert.alert("Error al eliminar", error.message);
+    } finally {
+      setProcesando(false);
+    }
+  };
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
         
-        {/* NUEVO HEADER MINIMALISTA CON BOTÓN ATRÁS */}
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color="#333" />
@@ -130,7 +163,7 @@ export default function GestionUsuariosScreen() {
             <Text style={styles.headerSub}>ADMIN</Text>
             <Text style={styles.headerTitle}>CONTROL DE PERSONAL</Text>
           </View>
-          <View style={{ width: 60 }} /> {/* Espaciador para equilibrar el título */}
+          <View style={{ width: 60 }} /> 
         </View>
 
         {loading ? (
@@ -189,6 +222,19 @@ export default function GestionUsuariosScreen() {
               <TouchableOpacity style={styles.saveBtn} onPress={handleGuardar}>
                 {procesando ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Guardar</Text>}
               </TouchableOpacity>
+
+              {/* --- BOTÓN ELIMINAR / DESPEDIR (SOLO SI SE ESTÁ EDITANDO) --- */}
+              {userId && (
+                <TouchableOpacity 
+                  style={styles.deleteBtn} 
+                  onPress={confirmarEliminar}
+                  disabled={procesando}
+                >
+                  <Ionicons name="trash-outline" size={18} color={DANGER_RED} style={{marginRight: 5}} />
+                  <Text style={styles.deleteBtnText}>Eliminar Acceso</Text>
+                </TouchableOpacity>
+              )}
+
               <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}><Text>Cerrar</Text></TouchableOpacity>
             </View>
           </View>
@@ -202,7 +248,6 @@ export default function GestionUsuariosScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f6f7fb' },
   
-  // ESTILOS DEL NUEVO HEADER
   header: { 
     flexDirection: 'row', 
     alignItems: 'center', 
@@ -238,7 +283,6 @@ const styles = StyleSheet.create({
   userStatus: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
   userSub: { fontSize: 11, color: '#cbd5e1', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 },
   
-  // EL BOTÓN FLOTANTE BAJÓ PORQUE YA NO HAY FOOTER
   fab: { position: 'absolute', bottom: 30, right: 20, backgroundColor: LOGO_BLUE, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 8 },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 25 },
@@ -251,5 +295,10 @@ const styles = StyleSheet.create({
   rolBtnText: { fontWeight: 'bold', color: '#64748b' },
   saveBtn: { backgroundColor: LOGO_BLUE, padding: 20, borderRadius: 15, alignItems: 'center' },
   saveBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
+
+  // ESTILOS DEL BOTÓN ELIMINAR
+  deleteBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 15, marginTop: 10, borderRadius: 15, borderWidth: 1, borderColor: '#fef2f2', backgroundColor: '#fffcfc' },
+  deleteBtnText: { color: DANGER_RED, fontWeight: 'bold', fontSize: 15 },
+
   closeBtn: { marginTop: 20, alignItems: 'center' }
 });

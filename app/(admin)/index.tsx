@@ -29,6 +29,7 @@ const MODULOS_DISPONIBLES = [
   { id: 'nuevo_gasto', label: 'Nuevo Gasto', desc: 'Salidas de dinero', icon: 'wallet', color: '#e74c3c', route: '/(admin)/nuevo_gasto' },
   { id: 'cotizacion', label: 'Cotizaciones', desc: 'Presupuestos PDF', icon: 'document-text', color: '#34495e', route: '/(admin)/cotizacion' },
   { id: 'checador', label: 'Checador', desc: 'Consulta de precios', icon: 'pricetag', color: '#10b981', route: '/(admin)/checador' },
+  { id: 'catalogo', label: 'Catálogo', desc: 'Menú digital', icon: 'book', color: '#8b5cf6', route: '/(admin)/catalogo' },
   { id: 'reportes', label: 'Reportes', desc: 'Cortes de caja', icon: 'bar-chart', color: '#e67e22', route: '/(admin)/historial' },
   { id: 'taller', label: 'Taller', desc: 'Control de equipos', icon: 'build', color: '#e74c3c', route: '/(admin)/taller' },
   { id: 'inversion', label: 'Inversión', desc: 'Gastos y compras', icon: 'cash', color: '#9b59b6', route: '/(admin)/inversion' },

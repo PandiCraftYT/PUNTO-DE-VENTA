@@ -10,6 +10,9 @@ import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler'
 import CustomHeader from '../../components/CustomHeader';
 import FooterNav from '../../components/FooterNav';
 
+// --- IMPORTAMOS NUESTRA HERRAMIENTA ---
+import { formatoMoneda } from '../lib/helpers';
+
 const LOGO_BLUE = '#0056FF';
 
 export default function ListaProductosScreen() {
@@ -22,26 +25,22 @@ export default function ListaProductosScreen() {
   const [refrescando, setRefrescando] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
-  // --- NUEVA LÓGICA: ACTUALIZACIÓN EN TIEMPO REAL (WEBSOCKETS) ---
+  // --- ACTUALIZACIÓN EN TIEMPO REAL (WEBSOCKETS) ---
   useEffect(() => {
-    // 1. Cargamos los productos la primera vez que se abre
     cargarProductos();
 
-    // 2. Abrimos la conexión en tiempo real
     const canalInventario = supabase
-      .channel(`inventario-realtime-${Date.now()}`) // Nombre único para evitar choques
+      .channel(`inventario-realtime-${Date.now()}`)
       .on(
         'postgres_changes', 
-        { event: '*', schema: 'public', table: 'productos' }, // Escuchamos CUALQUIER cambio (INSERT, UPDATE, DELETE) en la tabla productos
+        { event: '*', schema: 'public', table: 'productos' }, 
         (payload) => {
           console.log("¡Cambio en inventario detectado!", payload);
-          // 3. Cuando detecta un cambio, vuelve a descargar la lista
-          cargarProductos(false); // Le pasamos 'false' para que no muestre la rueda de carga gigante y lo haga silencioso
+          cargarProductos(false); 
         }
       )
       .subscribe();
 
-    // 4. Cerramos la conexión cuando te sales de la pantalla para no gastar batería
     return () => {
       supabase.removeChannel(canalInventario);
     };
@@ -59,13 +58,10 @@ export default function ListaProductosScreen() {
 
       if (error) throw error;
       
-      // --- LÓGICA NUEVA: ORDENAR AGOTADOS AL FINAL ---
+      // --- LÓGICA: ORDENAR AGOTADOS AL FINAL ---
       const dataOrdenada = (data || []).sort((a, b) => {
-        // Si a tiene stock 0 y b tiene más de 0, a se va abajo (1)
         if (a.stock <= 0 && b.stock > 0) return 1;
-        // Si b tiene stock 0 y a tiene más de 0, b se va abajo (-1)
         if (b.stock <= 0 && a.stock > 0) return -1;
-        // Si ambos tienen o ambos no tienen, mantienen su orden de creado_at
         return 0;
       });
 
@@ -165,7 +161,6 @@ export default function ListaProductosScreen() {
     return (
       <Swipeable renderRightActions={() => renderRightActions(item)} overshootRight={false}>
         <TouchableOpacity 
-          // Si está agotado, le bajamos la opacidad para que parezca "apagado"
           style={[styles.card, isAgotado && styles.cardAgotado]} 
           activeOpacity={0.9} 
           onPress={() => router.push(`/(admin)/producto/${item.id}` as any)}
@@ -181,13 +176,12 @@ export default function ListaProductosScreen() {
           <View style={styles.infoContainer}>
             <Text style={[styles.prodNombre, isAgotado && { color: '#94a3b8' }]} numberOfLines={1}>{item.nombre}</Text>
             <Text style={styles.prodLocal}>{item.localizacion || 'Local 1'}</Text>
-            {/* El precio cambia a gris si está agotado */}
+            {/* --- APLICAMOS EL FORMATO DE MONEDA AQUÍ --- */}
             <Text style={[styles.prodPrecio, isAgotado && styles.precioAgotado]}>
-              ${item.precio_venta}
+              {formatoMoneda(item.precio_venta)}
             </Text>
           </View>
 
-          {/* Etiqueta dinámica: Azul con Pz si hay stock, Roja con AGOTADO si no hay */}
           <View style={[styles.stockBadge, isAgotado && styles.stockBadgeAgotado]}>
             <Text style={[styles.stockText, isAgotado && styles.stockTextAgotado]}>
               {isAgotado ? 'AGOTADO' : `${item.stock} pz`}

@@ -10,6 +10,9 @@ import * as Location from 'expo-location';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth_context'; 
 
+// --- IMPORTAMOS NUESTRA FUNCIÓN DE FORMATO ---
+import { formatoMoneda } from './../lib/helpers'; 
+
 const LOGO_BLUE = '#0056FF';
 const WHATSAPP_GREEN = '#25D366';
 
@@ -258,13 +261,14 @@ export default function VentasScreen() {
   const enviarTicketWhatsApp = () => {
     if (!ticketGenerado) return;
 
-    let mensaje = `🛒 *GS GAMES SALE* 🎮\n¡Gracias por tu compra!\n\n*Detalle de tu ticket:*\n`;
+    let mensaje = `🛒 *Punto de venta* 🎮\n¡Gracias por tu compra!\n\n*Detalle de tu ticket:*\n`;
     
     ticketGenerado.productos.forEach((p: any) => {
-      mensaje += `▪️ ${p.cantidad_venta}x ${p.nombre} ($${(p.precio_venta * p.cantidad_venta).toFixed(2)})\n`;
+      // Aplicamos el formato con comas en el ticket
+      mensaje += `▪️ ${p.cantidad_venta}x ${p.nombre} (${formatoMoneda(p.precio_venta * p.cantidad_venta)})\n`;
     });
 
-    mensaje += `\n💰 *Total Pagado:* $${ticketGenerado.total.toFixed(2)}`;
+    mensaje += `\n💰 *Total Pagado:* ${formatoMoneda(ticketGenerado.total)}`;
     mensaje += `\n💳 *Método:* ${ticketGenerado.metodo}`;
     mensaje += `\n📅 *Fecha:* ${ticketGenerado.fecha.toLocaleDateString('es-MX')} ${ticketGenerado.fecha.toLocaleTimeString('es-MX', {hour: '2-digit', minute:'2-digit'})}`;
     mensaje += `\n\n📍 *¡Vuelve pronto!*`;
@@ -357,7 +361,8 @@ export default function VentasScreen() {
                       <Text style={styles.sugerenciaStock}>Stock: {item.stock}  |  Cód: {item.codigo_barras || 'N/A'}</Text>
                     </View>
                     
-                    <Text style={styles.sugerenciaPrecio}>${item.precio_venta}</Text>
+                    {/* Formato de comas en sugerencia */}
+                    <Text style={styles.sugerenciaPrecio}>{formatoMoneda(item.precio_venta)}</Text>
                   </TouchableOpacity>
                 )}
               />
@@ -392,10 +397,12 @@ export default function VentasScreen() {
               <View style={{ flex: 1, marginLeft: 15 }}>
                 <Text style={styles.itemName} numberOfLines={2}>{item.nombre}</Text>
                 <Text style={styles.itemSub}>
-                  ${parseFloat(item.precio_venta).toFixed(2)} {item.es_reparacion ? '' : `x ${item.cantidad_venta}`}
+                  {/* Formato de comas en el detalle del artículo */}
+                  {formatoMoneda(item.precio_venta)} {item.es_reparacion ? '' : `x ${item.cantidad_venta}`}
                 </Text>
               </View>
-              <Text style={styles.itemTotal}>${(item.cantidad_venta * item.precio_venta).toFixed(2)}</Text>
+              {/* Formato de comas en el total del artículo */}
+              <Text style={styles.itemTotal}>{formatoMoneda(item.cantidad_venta * item.precio_venta)}</Text>
               
               <TouchableOpacity onPress={() => actualizarCarrito(carrito.filter(c => c.id !== item.id))} style={{padding: 5}}>
                 <Ionicons name="trash-outline" size={22} color="#e74c3c" />
@@ -434,7 +441,8 @@ export default function VentasScreen() {
 
           <View style={styles.totalRow}>
             <Text style={styles.totalLabel}>TOTAL</Text>
-            <Text style={styles.totalAmount}>${calcularTotal().toFixed(2)}</Text>
+            {/* Formato de comas en el Total General */}
+            <Text style={styles.totalAmount}>{formatoMoneda(calcularTotal())}</Text>
           </View>
           <TouchableOpacity 
             style={[styles.btnFinalizar, (carrito.length === 0 || procesando) && {backgroundColor: '#ccc'}]} 
@@ -471,7 +479,8 @@ export default function VentasScreen() {
             </View>
             
             <Text style={styles.successTitle}>¡Cobro Exitoso!</Text>
-            <Text style={styles.successAmount}>${ticketGenerado?.total.toFixed(2)}</Text>
+            {/* Formato de comas en el mensaje de Éxito */}
+            <Text style={styles.successAmount}>{formatoMoneda(ticketGenerado?.total || 0)}</Text>
             <Text style={styles.successMetodo}>Pagado con {ticketGenerado?.metodo}</Text>
 
             <View style={styles.successDivider} />
@@ -506,9 +515,9 @@ const styles = StyleSheet.create({
   
   sugerenciasWrapper: {
     position: 'absolute',
-    top: 55, // Aparece justo debajo del input
+    top: 55, 
     left: 0,
-    right: 55, // Deja espacio para el botón de cámara
+    right: 55, 
     backgroundColor: '#fff',
     borderRadius: 12,
     borderWidth: 1,

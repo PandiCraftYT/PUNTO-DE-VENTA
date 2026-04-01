@@ -145,7 +145,7 @@ export default function ListaProductosScreen() {
           onPress={() => router.push(`/(admin)/producto/${item.id}` as any)}
         >
           <View style={[styles.imageContainer, isAgotado && { opacity: 0.6 }]}>
-            {item.imagen_url ? (
+            {item.imagen_url && item.imagen_url.trim() !== '' ? (
               <Image source={{ uri: item.imagen_url }} style={styles.prodImg} />
             ) : (
               <Ionicons name="cube-outline" size={24} color="#ccc" />

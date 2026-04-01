@@ -148,11 +148,20 @@ export default function AdminDashboard() {
         setTotalDinero(suma);
       }
 
-      // 2. Cargar Equipos Pendientes en Taller
+      // 2. Cargar Equipos Pendientes dependiendo del ROL
+      let estadosFiltro = [];
+      if (usuario?.rol === 'admin') {
+        // Al admin le importan los que tiene que reparar
+        estadosFiltro = ['RECIBIDO', 'EN REVISIÓN', 'EN REVISION'];
+      } else {
+        // Al empleado le importan los que ya puede entregar/cobrar
+        estadosFiltro = ['LISTO'];
+      }
+
       const { count, error: tallerError } = await supabase
         .from('reparaciones')
         .select('*', { count: 'exact', head: true })
-        .neq('estado', 'ENTREGADO'); 
+        .in('estado', estadosFiltro); 
 
       if (!tallerError && count !== null) {
         setEquiposTaller(count);
@@ -262,12 +271,18 @@ export default function AdminDashboard() {
             activeOpacity={0.8}
           >
             <View style={styles.tallerIndicatorLeft}>
-              <View style={styles.tallerIconBadge}>
-                <Ionicons name="build" size={20} color="#e67e22" />
+              <View style={[styles.tallerIconBadge, usuario?.rol !== 'admin' && { backgroundColor: '#dcfce7' }]}>
+                <Ionicons 
+                  name={usuario?.rol === 'admin' ? "build" : "checkmark-done"} 
+                  size={20} 
+                  color={usuario?.rol === 'admin' ? "#e67e22" : "#22c55e"} 
+                />
               </View>
-              <Text style={styles.tallerIndicatorText}>Equipos en Taller</Text>
+              <Text style={styles.tallerIndicatorText}>
+                {usuario?.rol === 'admin' ? 'Equipos en Taller' : 'Equipos Listos'}
+              </Text>
             </View>
-            <View style={styles.tallerBadge}>
+            <View style={[styles.tallerBadge, usuario?.rol !== 'admin' && { backgroundColor: '#22c55e' }]}>
               <Text style={styles.tallerBadgeText}>{equiposTaller}</Text>
             </View>
           </TouchableOpacity>

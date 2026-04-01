@@ -1,11 +1,11 @@
 {
   "expo": {
     "name": "Punto de Venta",
-    "slug": "Punto de Venta",
+    "slug": "Punto-de-Venta",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "Punto de Venta",
+    "scheme": "puntodeventa",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
@@ -19,7 +19,11 @@
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
       "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "android.permission.CAMERA"
+      ],
+      "package": "com.ca.nevarez20.puntodeventa"
     },
     "web": {
       "output": "static",
@@ -44,6 +48,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "ed581b99-a5b9-4cac-a75c-470f565313fe"
+      }
+    },
+    "owner": "ca.nevarez20"
   }
 }

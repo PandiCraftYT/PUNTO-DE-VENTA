@@ -2,12 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { 
   StyleSheet, Text, View, TextInput, TouchableOpacity, 
   ScrollView, Alert, ActivityIndicator, SafeAreaView, Platform,
-  KeyboardAvoidingView
+  KeyboardAvoidingView, Image
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../lib/auth_context';
+import * as ImagePicker from 'expo-image-picker';
 
 import FooterNav from '../../components/FooterNav';
 
@@ -27,6 +28,7 @@ export default function NuevoProductoScreen() {
   const [stock, setStock] = useState('1');
   const [categoria, setCategoria] = useState('');
   const [loading, setLoading] = useState(false);
+  const [imagenUri, setImagenUri] = useState<string | null>(null);
   
   // ESTADOS PARA EL DESPLEGABLE DE CATEGORÍAS
   const [categoriasGuardadas, setCategoriasGuardadas] = useState<string[]>([]);
@@ -47,6 +49,24 @@ export default function NuevoProductoScreen() {
       }
     } catch (error) {
       console.log("Error al cargar categorías:", error);
+    }
+  };
+
+  // --- SELECCIONAR FOTO DE LA GALERÍA ---
+  const handleSeleccionarFoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert("Permiso", "Necesitamos acceso a tus fotos para subir la imagen del producto.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1], // Foto cuadrada
+      quality: 0.5, // Comprimida para que suba rápido
+    });
+    if (!result.canceled) {
+      setImagenUri(result.assets[0].uri);
     }
   };
 
@@ -112,6 +132,25 @@ export default function NuevoProductoScreen() {
   const ejecutarGuardado = async () => {
     setLoading(true);
     try {
+      let finalImageUrl = null;
+
+      // --- LÓGICA PARA SUBIR LA FOTO A SUPABASE ---
+      if (imagenUri) {
+        const fileExt = imagenUri.split('.').pop() || 'jpg';
+        const fileName = `nuevo_${Math.random().toString(36).substring(7)}_${Date.now()}.${fileExt}`;
+        const filePath = `productos/${fileName}`;
+        
+        const response = await fetch(imagenUri);
+        const blob = await response.blob();
+        
+        const { error: uploadError } = await supabase.storage.from('inventario').upload(filePath, blob, { upsert: true });
+        if (uploadError) throw uploadError;
+
+        // Extraer la URL real pública
+        const { data } = supabase.storage.from('inventario').getPublicUrl(filePath);
+        finalImageUrl = data.publicUrl;
+      }
+
       const { error } = await supabase
         .from('productos')
         .insert([
@@ -124,6 +163,7 @@ export default function NuevoProductoScreen() {
             precio_costo: parseFloat(precioCosto) || 0,
             stock: parseInt(stock),
             categoria: categoria.trim() || 'General', 
+            imagen_url: finalImageUrl, // <-- Guardamos la URL pública
             registrado_por_nombre: usuario?.nombre || 'Admin GS',
             registrado_por_cuenta: usuario?.num_cuenta || '9999',
             creado_at: new Date()
@@ -194,9 +234,21 @@ export default function NuevoProductoScreen() {
         >
           
           <Text style={styles.label}>IMAGEN DEL PRODUCTO</Text>
-          <TouchableOpacity style={styles.imagePlaceholder}>
-            <Ionicons name="camera-outline" size={40} color="#ccc" />
-            <Text style={styles.imageText}>Toca para añadir foto</Text>
+          <TouchableOpacity style={styles.imagePlaceholder} onPress={handleSeleccionarFoto} activeOpacity={0.8}>
+            {imagenUri ? (
+              <>
+                <Image source={{ uri: imagenUri }} style={styles.previewImage} resizeMode="cover" />
+                <View style={styles.changeBadge}>
+                  <Ionicons name="pencil" size={14} color="#FFF" />
+                  <Text style={styles.changeBadgeText}>Cambiar</Text>
+                </View>
+              </>
+            ) : (
+              <>
+                <Ionicons name="camera-outline" size={40} color="#ccc" />
+                <Text style={styles.imageText}>Toca para añadir foto</Text>
+              </>
+            )}
           </TouchableOpacity>
 
           <Text style={styles.label}>CÓDIGO DE BARRAS / SKU</Text>
@@ -372,12 +424,16 @@ const styles = StyleSheet.create({
   scrollContent: { padding: 20 },
   label: { fontSize: 11, fontWeight: 'bold', color: '#7f8c8d', marginBottom: 8, marginTop: 15, textTransform: 'uppercase' },
   input: { backgroundColor: '#fff', borderRadius: 12, padding: 15, fontSize: 16, borderWidth: 1, borderColor: '#e1e8ed', color: '#2c3e50', ...(Platform.OS === 'web' && { outlineStyle: 'none' } as any) },
-  imagePlaceholder: { width: '100%', height: 180, backgroundColor: '#fff', borderRadius: 15, justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', borderWidth: 2, borderColor: '#bdc3c7' },
+  
+  // ESTILOS DE IMAGEN
+  imagePlaceholder: { width: '100%', height: 180, backgroundColor: '#fff', borderRadius: 15, justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', borderWidth: 2, borderColor: '#bdc3c7', overflow: 'hidden' },
   imageText: { color: '#bdc3c7', marginTop: 10, fontSize: 12 },
+  previewImage: { width: '100%', height: '100%' },
+  changeBadge: { position: 'absolute', bottom: 10, right: 10, backgroundColor: 'rgba(0,0,0,0.6)', flexDirection: 'row', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 15, alignItems: 'center' },
+  changeBadgeText: { color: '#FFF', fontSize: 11, fontWeight: 'bold', marginLeft: 5 },
   
   rowWrapper: { flexDirection: 'row', alignItems: 'center' },
   generateBtn: { backgroundColor: '#2ecc71', width: 55, height: 55, borderRadius: 12, justifyContent: 'center', alignItems: 'center', elevation: 2 },
-  // NUEVO ESTILO DEL BOTÓN DE IMPRIMIR AZUL
   printBtnBlue: { backgroundColor: LOGO_BLUE, width: 55, height: 55, borderRadius: 12, justifyContent: 'center', alignItems: 'center', elevation: 2, marginLeft: 10 },
   cancelarBtn: { backgroundColor: '#ff4757', width: 55, height: 55, borderRadius: 12, justifyContent: 'center', alignItems: 'center', elevation: 2 },
 

@@ -140,15 +140,23 @@ export default function EditarProductoScreen() {
     try {
       let finalImageUrl = imagenUri;
 
-      if (imagenUri && imagenUri.startsWith('file://')) {
-        const fileExt = imagenUri.split('.').pop();
-        const fileName = `${id}_${new Date().getTime()}.${fileExt}`;
+      // Si la imagen empieza con file:// o data:image (si es web), hay que subirla
+      if (imagenUri && (imagenUri.startsWith('file://') || imagenUri.startsWith('data:image'))) {
+        const fileExt = imagenUri.split('.').pop() || 'jpg';
+        // Generamos un nombre único y limpio
+        const fileName = `${id}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `productos/${fileName}`;
+        
         const response = await fetch(imagenUri);
         const blob = await response.blob();
-        await supabase.storage.from('inventario').upload(filePath, blob, { upsert: true });
-        const { data: { publicUrl } } = supabase.storage.from('inventario').getPublicUrl(filePath);
-        finalImageUrl = publicUrl;
+        
+        // Subimos la imagen
+        const { error: uploadError } = await supabase.storage.from('inventario').upload(filePath, blob, { upsert: true });
+        if (uploadError) throw uploadError;
+
+        // --- LA MAGIA CORREGIDA PARA OBTENER LA URL ---
+        const { data } = supabase.storage.from('inventario').getPublicUrl(filePath);
+        finalImageUrl = data.publicUrl;
       }
 
       const historialAnterior = datosOriginales?.historial_cambios || [];
@@ -171,7 +179,7 @@ export default function EditarProductoScreen() {
           precio_costo: parseFloat(precioCosto) || 0,
           stock: parseInt(stock) || 0,
           categoria: categoria,
-          imagen_url: finalImageUrl,
+          imagen_url: finalImageUrl, // Ahora sí guardará el enlace de internet
           historial_cambios: nuevoHistorial 
         })
         .eq('id', id);
@@ -185,7 +193,7 @@ export default function EditarProductoScreen() {
         Alert.alert("Éxito", "Producto actualizado", [{ text: "OK", onPress: () => router.replace('/(admin)/productos') }]);
       }
     } catch (error: any) {
-      if (Platform.OS === 'web') window.alert("Error de base de datos: " + error.message);
+      if (Platform.OS === 'web') window.alert("Error guardando foto: " + error.message);
       else Alert.alert("Error", error.message);
     } finally { 
       setProcesando(false); 

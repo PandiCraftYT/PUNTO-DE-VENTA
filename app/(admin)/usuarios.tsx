@@ -6,7 +6,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { useRouter } from 'expo-router'; 
-import { GestureHandlerRootView, Swipeable } from 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 const LOGO_BLUE = '#0056FF';
 const DANGER_RED = '#ff4757'; // Color rojo para el botón de despedir
@@ -83,8 +83,9 @@ export default function GestionUsuariosScreen() {
     if (user) {
       setUserId(user.id);
       setNombre(user.nombre);
-      setNumCuenta(user.num_cuenta);
-      setPin(user.pin);
+      // Aseguramos que se lean como string para el TextInput
+      setNumCuenta(user.num_cuenta ? user.num_cuenta.toString() : '');
+      setPin(user.pin ? user.pin.toString() : '');
       setRol(user.rol);
     } else {
       setUserId(null);
@@ -103,15 +104,29 @@ export default function GestionUsuariosScreen() {
     }
     setProcesando(true);
     try {
-      const payload = { nombre: nombre.trim(), num_cuenta: numCuenta.trim(), pin: pin.trim(), rol: rol, activo: true };
+      // Nos aseguramos de enviar los datos limpios. 
+      // NOTA: Si num_cuenta y pin son INTEGER en tu BD, usa parseInt(numCuenta.trim(), 10)
+      const payload = { 
+        nombre: nombre.trim(), 
+        num_cuenta: numCuenta.trim(), 
+        pin: pin.trim(), 
+        rol: rol, 
+        activo: true 
+      };
+
       if (userId) {
-        await supabase.from('usuarios').update(payload).eq('id', userId);
+        const { error } = await supabase.from('usuarios').update(payload).eq('id', userId);
+        if (error) throw error;
       } else {
-        await supabase.from('usuarios').insert([payload]);
+        // En Supabase v2, a menudo es mejor enviar el objeto directo si es uno solo
+        const { error } = await supabase.from('usuarios').insert(payload);
+        if (error) throw error;
       }
+      
       setModalVisible(false);
     } catch (error: any) {
-      Alert.alert("Error", error.message);
+      console.log("Error detallado al guardar:", error); // Esto nos dirá si falló por una regla de BD (ej. num_cuenta duplicado)
+      Alert.alert("Error al guardar", error.message || "Verifica que el número de cuenta no esté repetido.");
     } finally {
       setProcesando(false);
     }

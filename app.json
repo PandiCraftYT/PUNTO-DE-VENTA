@@ -43,7 +43,12 @@
           }
         }
       ],
-      "expo-barcode-scanner"
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Punto de Venta to access your camera."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,

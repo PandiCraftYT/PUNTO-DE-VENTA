@@ -113,8 +113,7 @@ export default function VentasScreen() {
     agregarAlCarrito(producto);
     setCodigoBusqueda('');
     setSugerencias([]);
-    // Regresamos el foco al input por si quiere seguir escaneando/escribiendo
-    inputRef.current?.focus();
+    // Eliminamos el inputRef.current?.focus() para que el teclado no te interrumpa
   };
 
   const buscarProductoExacto = async (codigo: string) => {
@@ -124,7 +123,9 @@ export default function VentasScreen() {
     // 1. Buscamos primero en la memoria local (súper rápido)
     const prodLocal = inventario.find(p => p.codigo_barras === cleanCode);
     if (prodLocal) {
-      seleccionarSugerencia(prodLocal);
+      agregarAlCarrito(prodLocal); // <-- Ahora lo mandamos directo al carrito
+      setCodigoBusqueda('');
+      setSugerencias([]);
       return;
     }
 

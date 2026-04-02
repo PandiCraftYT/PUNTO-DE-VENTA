@@ -202,7 +202,8 @@ export default function ListaProductosScreen() {
             <Ionicons name="search" size={20} color="#999" />
             <TextInput 
               style={[styles.searchInput, Platform.OS === 'web' && { outlineStyle: 'none' } as any]} 
-              placeholder="Buscar consola, local..."
+              placeholder="Buscar un producto..."
+              placeholderTextColor="#a0aec0"
               value={busqueda}
               onChangeText={setBusqueda}
             />

@@ -253,11 +253,12 @@ export default function ClientesScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Nuevo Cliente</Text>
-            <TextInput style={styles.input} placeholder="Nombre Completo" value={nombre} onChangeText={setNombre} />
-            <TextInput style={styles.input} placeholder="WhatsApp (10 dígitos)" keyboardType="phone-pad" value={telefono} onChangeText={setTelefono} />
+            <TextInput style={styles.input} placeholder="Nombre Completo" placeholderTextColor="#a0aec0" value={nombre} onChangeText={setNombre} />
+            <TextInput style={styles.input} placeholder="WhatsApp (10 dígitos)"placeholderTextColor="#a0aec0" keyboardType="phone-pad" value={telefono} onChangeText={setTelefono} />
             <TextInput 
               style={[styles.input, { height: 80 }]} 
               placeholder="Notas o Preferencias" 
+              placeholderTextColor="#a0aec0"
               multiline value={notas} 
               onChangeText={setNotas} 
             />
@@ -362,6 +363,7 @@ export default function ClientesScreen() {
                 <TextInput 
                   style={[styles.input, { flex: 1, marginBottom: 0 }]} 
                   placeholder="Ej. PS5, Switch, Control..." 
+                  placeholderTextColor="#a0aec0"
                   value={equipoCampana} 
                   onChangeText={setEquipoCampana} 
                 />

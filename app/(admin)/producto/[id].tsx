@@ -264,7 +264,8 @@ export default function EditarProductoScreen() {
         <View style={styles.barcodeRow}>
           <TextInput 
             style={[styles.input, { flex: 1, marginRight: 10 }]} 
-            placeholder="Pistola escáner o automático..." 
+            placeholder="CÓDIGO DE BARRAS / SKU..."  
+            placeholderTextColor="#a0aec0"
             value={codigoBarras} 
             onChangeText={setCodigoBarras} 
           />
@@ -277,10 +278,10 @@ export default function EditarProductoScreen() {
         </View>
 
         <Text style={styles.label}>NOMBRE *</Text>
-        <TextInput style={styles.input} value={nombre} onChangeText={setNombre} />
+        <TextInput style={styles.input} value={nombre} onChangeText={setNombre} placeholderTextColor="#a0aec0" />
 
         <Text style={styles.label}>DESCRIPCIÓN</Text>
-        <TextInput style={[styles.input, { height: 80 }]} value={descripcion} onChangeText={setDescripcion} multiline />
+        <TextInput style={[styles.input, { height: 80 }]} value={descripcion} onChangeText={setDescripcion} placeholderTextColor="#a0aec0" multiline />
 
         <Text style={styles.label}>CATEGORÍA</Text>
         <TextInput style={styles.input} value={categoria} onChangeText={setCategoria} placeholder="Ej: Gorras, Videojuegos..." />

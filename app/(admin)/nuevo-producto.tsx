@@ -255,7 +255,8 @@ export default function NuevoProductoScreen() {
           <View style={styles.rowWrapper}>
             <TextInput 
               style={[styles.input, { flex: 1, marginRight: 10 }]} 
-              placeholder="Pistola escáner o automático..." 
+              placeholder="CÓDIGO DE BARRAS / SKU..." 
+              placeholderTextColor="#a0aec0"
               value={codigoBarras} 
               onChangeText={setCodigoBarras} 
             />
@@ -271,10 +272,10 @@ export default function NuevoProductoScreen() {
           </View>
 
           <Text style={styles.label}>NOMBRE DEL ARTÍCULO *</Text>
-          <TextInput style={styles.input} placeholder="Ej: Nintendo Switch" value={nombre} onChangeText={setNombre} />
+          <TextInput style={styles.input} placeholder="Ej: Nintendo Switch" placeholderTextColor="#a0aec0" value={nombre} onChangeText={setNombre} />
 
           <Text style={styles.label}>DESCRIPCIÓN (OPCIONAL)</Text>
-          <TextInput style={[styles.input, { height: 80 }]} placeholder="Detalles..." multiline value={descripcion} onChangeText={setDescripcion} />
+          <TextInput style={[styles.input, { height: 80 }]} placeholder="Detalles..."  placeholderTextColor="#a0aec0" multiline value={descripcion} onChangeText={setDescripcion} />
 
           <Text style={styles.label}>LOCALIZACIÓN / TIENDA</Text>
           <View style={styles.rowSelector}>
@@ -296,16 +297,16 @@ export default function NuevoProductoScreen() {
           <View style={styles.gridRow}>
             <View style={styles.gridHalf}>
               <Text style={styles.label}>PRECIO VENTA *</Text>
-              <TextInput style={styles.input} placeholder="$0.00" keyboardType="numeric" value={precioVenta} onChangeText={setPrecioVenta} />
+              <TextInput style={styles.input} placeholder="$0.00" placeholderTextColor="#a0aec0"keyboardType="numeric" value={precioVenta} onChangeText={setPrecioVenta} />
             </View>
             <View style={[styles.gridHalf, { marginLeft: 10 }]}>
               <Text style={styles.label}>PRECIO COSTO</Text>
-              <TextInput style={styles.input} placeholder="$0.00" keyboardType="numeric" value={precioCosto} onChangeText={setPrecioCosto} />
+              <TextInput style={styles.input} placeholder="$0.00" placeholderTextColor="#a0aec0" keyboardType="numeric" value={precioCosto} onChangeText={setPrecioCosto} />
             </View>
           </View>
 
           <Text style={styles.label}>CANTIDAD EN STOCK *</Text>
-          <TextInput style={styles.input} placeholder="1" keyboardType="numeric" value={stock} onChangeText={setStock} />
+          <TextInput style={styles.input} placeholder="1" placeholderTextColor="#a0aec0" keyboardType="numeric" value={stock} onChangeText={setStock} />
 
           <Text style={styles.label}>CATEGORÍA</Text>
           
@@ -362,6 +363,7 @@ export default function NuevoProductoScreen() {
               <TextInput 
                 style={[styles.input, { flex: 1, marginRight: 10 }]} 
                 placeholder="Escribe la nueva categoría..." 
+                placeholderTextColor="#a0aec0"
                 value={categoria} 
                 onChangeText={setCategoria} 
                 autoFocus={true} 

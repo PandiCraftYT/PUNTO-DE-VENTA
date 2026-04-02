@@ -198,6 +198,7 @@ export default function CotizacionScreen() {
           <TextInput
             style={[styles.input, Platform.OS === 'web' && { outlineStyle: 'none' } as any]}
             placeholder="Ej. Juan Pérez"
+            placeholderTextColor="#a0aec0"
             value={cliente}
             onChangeText={setCliente}
           />

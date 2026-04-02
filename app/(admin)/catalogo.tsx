@@ -402,6 +402,7 @@ export default function TiendaPublicaScreen() {
                 <TextInput 
                   style={[styles.inputBox, errores.nombre && styles.inputError]} 
                   placeholder="Tu Nombre Completo *" 
+                  placeholderTextColor="#a0aec0"
                   value={nombreCliente} 
                   onChangeText={setNombreCliente} 
                 />
@@ -409,7 +410,8 @@ export default function TiendaPublicaScreen() {
 
                 <TextInput 
                   style={[styles.inputBox, errores.telefono && styles.inputError, {marginTop: 10}]} 
-                  placeholder="Tu Teléfono (WhatsApp) *" 
+                  placeholder="Tu Teléfono (WhatsApp) *"
+                  placeholderTextColor="#a0aec0" 
                   keyboardType="phone-pad" 
                   value={telefonoCliente} 
                   onChangeText={setTelefonoCliente} 
@@ -423,6 +425,7 @@ export default function TiendaPublicaScreen() {
                 <TextInput 
                   style={[styles.inputBox, errores.fecha && styles.inputError]} 
                   placeholder="¿Cuándo pasarás? (Ej. Hoy a las 4 PM) *" 
+                  placeholderTextColor="#a0aec0"
                   value={fechaRecogida} 
                   onChangeText={setFechaRecogida} 
                 />
@@ -440,6 +443,7 @@ export default function TiendaPublicaScreen() {
                     <TextInput 
                       style={[styles.inputBox, errores.nombreOtra && styles.inputError, {backgroundColor: '#fff'}]} 
                       placeholder="Nombre de quien recoge *" 
+                      placeholderTextColor="#a0aec0"
                       value={nombreOtraPersona} 
                       onChangeText={setNombreOtraPersona} 
                     />
@@ -448,6 +452,7 @@ export default function TiendaPublicaScreen() {
                     <TextInput 
                       style={[styles.inputBox, errores.telefonoOtra && styles.inputError, {backgroundColor: '#fff', marginTop: 10}]} 
                       placeholder="Teléfono de quien recoge *" 
+                      placeholderTextColor="#a0aec0"
                       keyboardType="phone-pad" 
                       value={telefonoOtraPersona} 
                       onChangeText={setTelefonoOtraPersona} 

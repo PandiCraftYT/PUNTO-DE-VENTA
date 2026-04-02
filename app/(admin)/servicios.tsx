@@ -150,6 +150,7 @@ export default function CatalogoServiciosScreen() {
         <TextInput
           style={[styles.searchInput, Platform.OS === 'web' && { outlineStyle: 'none' } as any]}
           placeholder="Buscar servicio..."
+          placeholderTextColor="#a0aec0"
           value={busqueda}
           onChangeText={setBusqueda}
         />

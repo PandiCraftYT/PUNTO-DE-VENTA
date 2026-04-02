@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   StyleSheet, Text, View, SafeAreaView, TextInput, 
-  TouchableOpacity, ActivityIndicator, Platform, Modal, Image, FlatList
+  TouchableOpacity, ActivityIndicator, Platform, Modal, Image, FlatList, Keyboard 
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -58,7 +58,7 @@ export default function ChecadorScreen() {
   const buscarPorCodigoExacto = async (codigo: string) => {
     const cleanCode = codigo.trim();
     if (!cleanCode) return;
-
+    Keyboard.dismiss();
     setCargando(true);
     setSugerencias([]);
     
@@ -104,13 +104,14 @@ export default function ChecadorScreen() {
     setBusqueda('');
     setSugerencias([]);
     setProductoEncontrado(prod);
+    Keyboard.dismiss(); // <-- Obliga al teclado a esconderse
   };
 
   const limpiar = () => {
     setBusqueda('');
     setSugerencias([]);
     setProductoEncontrado(null);
-    inputRef.current?.focus();
+    Keyboard.dismiss(); // <-- Escondemos el teclado en lugar de forzarlo a abrirse
   };
 
   return (
@@ -134,7 +135,6 @@ export default function ChecadorScreen() {
               value={busqueda}
               onChangeText={manejarEscritura}
               onSubmitEditing={() => buscarPorCodigoExacto(busqueda)}
-              autoFocus
               {...(Platform.OS === 'web' && { outlineStyle: 'none' } as any)}
             />
             {busqueda.length > 0 && (

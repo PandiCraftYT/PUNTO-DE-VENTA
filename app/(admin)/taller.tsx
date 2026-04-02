@@ -43,10 +43,9 @@ export default function TallerScreen() {
 
   useEffect(() => {
     cargarReparaciones();
-    cargarDirectorio(); // Cargamos los clientes al abrir la pantalla
+    cargarDirectorio(); 
   }, []);
 
-  // Función que trae a todos los clientes del directorio
   const cargarDirectorio = async () => {
     try {
       const { data, error } = await supabase.from('clientes').select('*');
@@ -82,11 +81,9 @@ export default function TallerScreen() {
     }
   };
 
-  // --- FUNCIÓN QUE SE EJECUTA CUANDO ESCRIBES EN EL NOMBRE ---
   const handleCambioCliente = (texto: string) => {
     setCliente(texto);
     if (texto.length > 1) {
-      // Filtrar el directorio buscando coincidencias
       const coincidencias = directorioClientes.filter(c => 
         c.nombre.toLowerCase().includes(texto.toLowerCase())
       );
@@ -97,7 +94,6 @@ export default function TallerScreen() {
     }
   };
 
-  // --- FUNCIÓN CUANDO SELECCIONAS UN CLIENTE DE LA LISTA ---
   const seleccionarCliente = (cli: any) => {
     setCliente(cli.nombre);
     setTelefono(cli.telefono);
@@ -112,10 +108,8 @@ export default function TallerScreen() {
     }
     setGuardando(true);
     try {
-      // 1. Verificar si el cliente existe en el directorio
       const clienteExiste = directorioClientes.find(c => c.nombre.toLowerCase() === cliente.toLowerCase());
       
-      // Si NO existe, lo creamos automáticamente en el directorio
       if (!clienteExiste) {
         await supabase.from('clientes').insert([{
           nombre: cliente,
@@ -123,16 +117,52 @@ export default function TallerScreen() {
           sucursal_registro: sucursal,
           registrado_por: usuario?.nombre
         }]);
-        // Recargar el directorio interno
         cargarDirectorio();
       }
 
-      // 2. Guardar la reparación normal
       const { error } = await supabase.from('reparaciones').insert([{
         cliente, telefono, equipo, problema, costo_estimado: parseFloat(costo) || 0, registrado_por: usuario?.nombre,
         sucursal: sucursal
       }]);
       if (error) throw error;
+
+      // =========================================================================
+      // LÓGICA DE NOTIFICACIONES PUSH (Avisar al Admin que llegó un equipo)
+      // =========================================================================
+      try {
+        // 1. Buscar a los administradores que tengan un token de notificaciones
+        const { data: admins } = await supabase
+          .from('usuarios')
+          .select('push_token')
+          .eq('rol', 'admin') 
+          .not('push_token', 'is', null);
+
+        if (admins && admins.length > 0) {
+          // 2. Mandarle un mensaje Push a cada administrador encontrado
+          for (const admin of admins) {
+            if(admin.push_token) {
+              await fetch('https://exp.host/--/api/v2/push/send', {
+                method: 'POST',
+                headers: {
+                  Accept: 'application/json',
+                  'Accept-encoding': 'gzip, deflate',
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  to: admin.push_token,
+                  sound: 'default',
+                  title: '¡Nuevo Equipo en Taller! 🛠️',
+                  body: `${cliente} ha dejado un ${equipo}. Falla: ${problema}`,
+                  data: { ruta: 'taller' },
+                }),
+              });
+            }
+          }
+        }
+      } catch (pushError) {
+        console.log("No se pudo enviar la notificación Push", pushError);
+      }
+      // =========================================================================
       
       setModalVisible(false);
       setCliente(''); setTelefono(''); setEquipo(''); setProblema(''); setCosto(''); setSucursal('Centro');
@@ -348,6 +378,7 @@ export default function TallerScreen() {
               <TextInput 
                 style={styles.input} 
                 placeholder="Nombre del Cliente" 
+                placeholderTextColor="#a0aec0"
                 value={cliente} 
                 onChangeText={handleCambioCliente} 
               />
@@ -372,10 +403,10 @@ export default function TallerScreen() {
               )}
             </View>
 
-            <TextInput style={styles.input} placeholder="Teléfono (WhatsApp)" keyboardType="phone-pad" value={telefono} onChangeText={setTelefono} />
-            <TextInput style={styles.input} placeholder="Equipo (Ej. PS5, Switch)" value={equipo} onChangeText={setEquipo} />
-            <TextInput style={styles.input} placeholder="Falla o Problema" value={problema} onChangeText={setProblema} />
-            <TextInput style={styles.input} placeholder="Costo Estimado ($)" keyboardType="numeric" value={costo} onChangeText={setCosto} />
+            <TextInput style={styles.input} placeholder="Teléfono (WhatsApp)" placeholderTextColor="#a0aec0" keyboardType="phone-pad" value={telefono} onChangeText={setTelefono} />
+            <TextInput style={styles.input} placeholder="Equipo (Ej. PS5, Switch)" placeholderTextColor="#a0aec0" value={equipo} onChangeText={setEquipo} />
+            <TextInput style={styles.input} placeholder="Falla o Problema" placeholderTextColor="#a0aec0" value={problema} onChangeText={setProblema} />
+            <TextInput style={styles.input} placeholder="Costo Estimado ($)" placeholderTextColor="#a0aec0" keyboardType="numeric" value={costo} onChangeText={setCosto} />
             
             <Text style={{ fontSize: 12, color: '#64748b', marginTop: 5, marginBottom: 5, marginLeft: 5, fontWeight: 'bold' }}>UBICACIÓN DE RECEPCIÓN</Text>
             <View style={{ flexDirection: 'row', marginBottom: 15 }}>
@@ -518,10 +549,6 @@ export default function TallerScreen() {
 
               </View>
             )}
-
-            <TouchableOpacity style={[styles.btn, {backgroundColor: LOGO_BLUE, marginTop: 20}]} onPress={() => setModalDetallesVisible(false)}>
-              <Text style={{color: '#fff', fontWeight: 'bold'}}>Cerrar Detalles</Text>
-            </TouchableOpacity>
           </View>
         </View>
       </Modal>

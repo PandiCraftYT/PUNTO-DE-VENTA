@@ -221,9 +221,9 @@ export default function GestionUsuariosScreen() {
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>{userId ? 'Editar Usuario' : 'Nuevo Usuario'}</Text>
-              <TextInput style={styles.input} value={nombre} onChangeText={setNombre} placeholder="Nombre" />
-              <TextInput style={styles.input} value={numCuenta} onChangeText={setNumCuenta} placeholder="Cuenta" keyboardType="numeric" />
-              <TextInput style={styles.input} value={pin} onChangeText={setPin} placeholder="PIN" keyboardType="numeric" maxLength={4} />
+              <TextInput style={styles.input} value={nombre} onChangeText={setNombre} placeholder="Nombre" placeholderTextColor="#a0aec0"/>
+              <TextInput style={styles.input} value={numCuenta} onChangeText={setNumCuenta} placeholder="Cuenta" keyboardType="numeric" placeholderTextColor="#a0aec0"/>
+              <TextInput style={styles.input} value={pin} onChangeText={setPin} placeholder="PIN" keyboardType="numeric" maxLength={4} placeholderTextColor="#a0aec0"/>
               
               <View style={styles.rolRow}>
                 <TouchableOpacity style={[styles.rolBtn, rol === 'empleado' && styles.rolBtnActive]} onPress={() => setRol('empleado')}>

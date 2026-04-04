@@ -54,7 +54,7 @@ export default function AdminDashboard() {
   // Estados para la personalización de módulos
   const [modalModulosVisible, setModalModulosVisible] = useState(false);
   // Módulos por defecto si es la primera vez que entran
-  const [modulosActivos, setModulosActivos] = useState<string[]>(['ventas', 'productos', 'reportes', 'inversion']);
+  const [modulosActivos, setModulosActivos] = useState<string[]>(['ventas', 'nuevo_gasto', 'cotizacion', 'checador']);
 
   // --- SISTEMA DE NOTIFICACIONES PUSH (AÑADIDO AQUÍ) ---
   useEffect(() => {

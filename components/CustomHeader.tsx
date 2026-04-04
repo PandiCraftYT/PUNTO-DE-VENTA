@@ -6,8 +6,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../app/lib/auth_context'; 
-import { supabase } from '../app/lib/supabase';
+import { useAuth } from '../app/lib/auth_context'; // Ajustado con el guion bajo
+import { supabase } from '../app/lib/supabase'; // Ajustado con el guion bajo
 
 const { width } = Dimensions.get('window');
 const SIDEBAR_WIDTH = Math.min(width * 0.75, 300);
@@ -18,6 +18,9 @@ export default function CustomHeader({ title = "Punto de Venta" }: any) {
   const { usuario, setUsuario } = useAuth();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
+  
+  // ESTADO NUEVO: Detecta si el enlace de la imagen está roto
+  const [errorImagen, setErrorImagen] = useState(false);
 
   const esAdmin = usuario?.rol === 'admin';
   const nombreMostrar = usuario?.nombre || "Cargando...";
@@ -79,15 +82,25 @@ export default function CustomHeader({ title = "Punto de Venta" }: any) {
           <Animated.View style={[styles.sidebar, { transform: [{ translateX: slideAnim }] }]}>
             <View style={styles.sidebarInner}>
               <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContainer}>
+                
                 <View style={styles.sidebarHeader}>
                   <View style={styles.avatarWrapper}>
-                    {fotoPerfil ? <Image source={{ uri: fotoPerfil }} style={styles.avatarImage} /> : <Ionicons name="person-circle-outline" size={85} color={LOGO_BLUE} />}
+                    {/* LÓGICA DE IMAGEN CORREGIDA CON ONERROR */}
+                    {fotoPerfil && fotoPerfil.startsWith('http') && !errorImagen ? (
+                      <Image 
+                        source={{ uri: fotoPerfil }} 
+                        style={styles.avatarImage} 
+                        resizeMode="cover"
+                        onError={() => setErrorImagen(true)} // Si el link está roto, cambia a true
+                      />
+                    ) : (
+                      <Ionicons name="person-circle-outline" size={85} color={LOGO_BLUE} />
+                    )}
                   </View>
                   <Text style={styles.sidebarUser} numberOfLines={2}>{nombreMostrar}</Text>
                   <Text style={[styles.sidebarRole, { color: esAdmin ? '#9c27b0' : LOGO_BLUE }]}>{rolMostrar}</Text>
                 </View>
 
-                {/* MENÚ GENERAL (Visible para Empleados y Admins) */}
                 <TouchableOpacity style={styles.menuItem} onPress={() => navegar('/(admin)/perfil')}>
                   <Ionicons name="person-outline" size={24} color="#333" />
                   <Text style={styles.menuText}>Mi Perfil</Text>
@@ -98,7 +111,6 @@ export default function CustomHeader({ title = "Punto de Venta" }: any) {
                   <Text style={styles.menuText}>Realizar Venta</Text>
                 </TouchableOpacity>
 
-                {/* AHORA TALLER ES PARA TODOS */}
                 <TouchableOpacity style={styles.menuItem} onPress={() => navegar('/(admin)/taller')}>
                   <Ionicons name="hardware-chip-outline" size={24} color="#333" />
                   <Text style={styles.menuText}>Control de Taller</Text>
@@ -114,7 +126,6 @@ export default function CustomHeader({ title = "Punto de Venta" }: any) {
                   <Text style={styles.menuText}>Catálogo de Servicios</Text>
                 </TouchableOpacity>
 
-                {/* SECCIÓN SOLO ADMIN */}
                 {esAdmin && (
                   <View style={styles.adminSection}>
                     <Text style={styles.sectionTitle}>SISTEMA ADMIN</Text>
@@ -129,12 +140,14 @@ export default function CustomHeader({ title = "Punto de Venta" }: any) {
                   </View>
                 )}
               </ScrollView>
+              
               <View style={styles.footer}>
                 <TouchableOpacity style={styles.logoutBtn} onPress={cerrarSesion}>
                   <Ionicons name="log-out-outline" size={24} color="#e74c3c" />
                   <Text style={styles.logoutText}>Cerrar Sesión</Text>
                 </TouchableOpacity>
               </View>
+
             </View>
           </Animated.View>
         </View>
@@ -158,7 +171,7 @@ const styles = StyleSheet.create({
   scrollContainer: { paddingHorizontal: 25, paddingBottom: 20 },
   sidebarHeader: { alignItems: 'center', marginBottom: 30, paddingBottom: 25, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   avatarWrapper: { width: 85, height: 85, borderRadius: 42.5, justifyContent: 'center', alignItems: 'center', marginBottom: 10, overflow: 'hidden' },
-  avatarImage: { width: '100%', height: '100%', borderRadius: 42.5 },
+  avatarImage: { width: 85, height: 85, borderRadius: 42.5 },
   sidebarUser: { fontSize: 18, fontWeight: '800', color: '#1e293b', textAlign: 'center', paddingHorizontal: 5 },
   sidebarRole: { fontSize: 12, fontWeight: 'bold', marginTop: 5, letterSpacing: 1 },
   menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 15, marginBottom: 5 },

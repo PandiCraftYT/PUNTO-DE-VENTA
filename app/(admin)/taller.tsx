@@ -103,9 +103,26 @@ export default function TallerScreen() {
         if (admins && admins.length > 0) {
           for (const admin of admins) {
             if (admin.push_token && admin.push_token.includes('ExponentPushToken')) {
+              
+              // ==========================================
+              // AQUÍ INTEGRAMOS EL PROJECT ID PARA EL APK
+              // ==========================================
               fetch('https://exp.host/--/api/v2/push/send', {
-                method: 'POST', headers: { Accept: 'application/json', 'Accept-encoding': 'gzip, deflate', 'Content-Type': 'application/json' },
-                body: JSON.stringify({ to: admin.push_token, sound: 'default', title: '¡Nuevo Equipo! 🛠️', body: `Se registró un ${equipo} para ${cliente}.`, data: { ruta: 'taller' } }),
+                method: 'POST', 
+                headers: { 
+                  Accept: 'application/json', 
+                  'Accept-encoding': 'gzip, deflate', 
+                  'Content-Type': 'application/json' 
+                },
+                body: JSON.stringify({ 
+                  to: admin.push_token, 
+                  sound: 'default', 
+                  title: '¡Nuevo Equipo! 🛠️', 
+                  body: `Se registró un ${equipo} para ${cliente}.`, 
+                  data: { ruta: 'taller' },
+                  // ¡Este es el código vital para que suene en Android!
+                  projectId: "ed581b99-a5b9-4cac-a75c-470f565313fe" 
+                }),
               }).catch(() => {});
             }
           }

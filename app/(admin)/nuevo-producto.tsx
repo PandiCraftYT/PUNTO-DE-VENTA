@@ -283,7 +283,7 @@ export default function NuevoProductoScreen() {
               style={[styles.tabSelector, localizacion === 'HUIZACHES' && styles.tabSelectorActive]}
               onPress={() => setLocalizacion('HUIZACHES')}
             >
-              <Text style={[styles.tabSelectorText, localizacion === 'HUIZACHES' && styles.textWhite]}>LAS HUIZACHES</Text>
+              <Text style={[styles.tabSelectorText, localizacion === 'HUIZACHES' && styles.textWhite]}>LOS HUIZACHES</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 

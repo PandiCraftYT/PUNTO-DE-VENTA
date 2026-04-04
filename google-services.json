@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "662809972588",
+    "project_id": "punto-de-venta-c6d0f",
+    "storage_bucket": "punto-de-venta-c6d0f.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:662809972588:android:82c5e9e988bb6bb570ed49",
+        "android_client_info": {
+          "package_name": "com.ca.nevarez20.puntodeventa"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDfLd0UC2DAltoVBtpUxYU252JZtGS6oWE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

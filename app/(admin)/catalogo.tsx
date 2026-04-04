@@ -135,7 +135,7 @@ export default function TiendaPublicaScreen() {
   };
 
   const compartirEnlace = async () => {
-    const link = Platform.OS === 'web' ? window.location.href : 'https://tienda.gsgamessale.com';
+    const link = Platform.OS === 'web' ? window.location.href : 'https://puntoventa.charlystudio.org/catalogo';
     const mensaje = `🎮 *¡Hola! Checa nuestro catálogo digital de Punto de venta* 🎮\n\nMira todo nuestro inventario disponible, precios y haz tu pedido en línea súper rápido aquí:\n\n👉 ${link}`;
 
     if (Platform.OS === 'web') {

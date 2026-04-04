@@ -292,7 +292,7 @@ export default function EditarProductoScreen() {
             style={[styles.tab, localizacion === 'HUIZACHES' && styles.tabActive]}
             onPress={() => setLocalizacion('HUIZACHES')}
           >
-            <Text style={[styles.tabText, localizacion === 'HUIZACHES' && styles.textWhite]}>LAS HUIZACHES</Text>
+            <Text style={[styles.tabText, localizacion === 'HUIZACHES' && styles.textWhite]}>LOS HUIZACHES</Text>
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.tab, localizacion === 'CENTRO' && styles.tabActive]}

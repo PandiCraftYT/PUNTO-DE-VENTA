@@ -23,40 +23,31 @@ interface ModuleButtonProps {
   onPress: () => void;
 }
 
-// LISTA DE TODOS LOS MÓDULOS DISPONIBLES EN TU SISTEMA
+// LISTA DE MÓDULOS COMERCIALES (MVP BASE)
 const MODULOS_DISPONIBLES = [
-  { id: 'ventas', label: 'Nueva Venta', desc: 'Punto de venta', icon: 'cart', color: '#0056FF', route: '/(admin)/ventas' },
-  { id: 'nuevo_gasto', label: 'Nuevo Gasto', desc: 'Salidas de dinero', icon: 'wallet', color: '#e74c3c', route: '/(admin)/nuevo_gasto' },
+  { id: 'ventas', label: 'Cobrar', desc: 'Punto de venta', icon: 'cart', color: '#0056FF', route: '/(admin)/ventas' },
+  { id: 'productos', label: 'Inventario', desc: 'Tus productos', icon: 'cube', color: '#2ecc71', route: '/(admin)/productos' },
+  { id: 'clientes', label: 'Clientes', desc: 'Directorio', icon: 'people', color: '#3b82f6', route: '/(admin)/clientes' },
+  { id: 'reportes', label: 'Reportes', desc: 'Cortes y ventas', icon: 'bar-chart', color: '#e67e22', route: '/(admin)/historial' },
   { id: 'cotizacion', label: 'Cotizaciones', desc: 'Presupuestos PDF', icon: 'document-text', color: '#34495e', route: '/(admin)/cotizacion' },
-  { id: 'checador', label: 'Checador', desc: 'Consulta de precios', icon: 'pricetag', color: '#10b981', route: '/(admin)/checador' },
-  { id: 'catalogo', label: 'Catálogo', desc: 'Menú digital', icon: 'book', color: '#8b5cf6', route: '/(admin)/catalogo' },
-  { id: 'reportes', label: 'Reportes', desc: 'Cortes de caja', icon: 'bar-chart', color: '#e67e22', route: '/(admin)/historial' },
-  { id: 'taller', label: 'Taller', desc: 'Control de equipos', icon: 'build', color: '#e74c3c', route: '/(admin)/taller' },
-  { id: 'inversion', label: 'Inversión', desc: 'Gastos y compras', icon: 'cash', color: '#9b59b6', route: '/(admin)/inversion' },
-  { id: 'usuarios', label: 'Usuarios', desc: 'Gestión de personal', icon: 'people', color: '#16a085', route: '/(admin)/usuarios' },
-  { id: 'productos', label: 'Productos', desc: 'Tu inventario', icon: 'cube', color: '#2ecc71', route: '/(admin)/productos' },
-  { id: 'servicios', label: 'Servicios', desc: 'Catálogo de reparaciones', icon: 'construct', color: '#f39c12', route: '/(admin)/servicios' },
-  { id: 'clientes', label: 'Clientes', desc: 'Directorio y lealtad', icon: 'people', color: '#3b82f6', route: '/(admin)/clientes' },
+  { id: 'usuarios', label: 'Personal', desc: 'Gestión de cajeros', icon: 'id-card', color: '#16a085', route: '/(admin)/usuarios' },
 ];
 
 export default function AdminDashboard() {
   const router = useRouter();
-  
-  // AÑADIDO: Extraemos cargandoSesion del contexto
   const { usuario, cargandoSesion } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [ventasHoy, setVentasHoy] = useState<any[]>([]);
   const [totalDinero, setTotalDinero] = useState(0);
-  const [equiposTaller, setEquiposTaller] = useState(0);
 
   // Estados para la personalización de módulos
   const [modalModulosVisible, setModalModulosVisible] = useState(false);
-  // Módulos por defecto si es la primera vez que entran
-  const [modulosActivos, setModulosActivos] = useState<string[]>(['ventas', 'nuevo_gasto', 'cotizacion', 'checador']);
+  // Módulos comerciales por defecto
+  const [modulosActivos, setModulosActivos] = useState<string[]>(['ventas', 'productos', 'reportes', 'clientes']);
 
-  // --- SISTEMA DE NOTIFICACIONES PUSH (AÑADIDO AQUÍ) ---
+  // --- SISTEMA DE NOTIFICACIONES PUSH ---
   useEffect(() => {
     if (usuario) {
       registrarSuscripcionPush();
@@ -64,11 +55,9 @@ export default function AdminDashboard() {
   }, [usuario]);
 
   const registrarSuscripcionPush = async () => {
-    // 1. Verificamos que sea un celular físico
     if (Platform.OS === 'web') return; 
     
     if (Device.isDevice) {
-      // 2. Pedimos permiso al usuario
       const { status: existingStatus } = await Notifications.getPermissionsAsync();
       let finalStatus = existingStatus;
       
@@ -82,15 +71,12 @@ export default function AdminDashboard() {
         return;
       }
 
-      // 3. Obtenemos el Token único del celular
       try {
         const tokenData = await Notifications.getExpoPushTokenAsync({
           projectId: Constants.expoConfig?.extra?.eas?.projectId,
         });
         const pushToken = tokenData.data;
-        console.log("MI PUSH TOKEN ES:", pushToken);
 
-        // 4. Lo guardamos en Supabase en el perfil de este usuario
         const { error } = await supabase
           .from('usuarios')
           .update({ push_token: pushToken })
@@ -105,10 +91,8 @@ export default function AdminDashboard() {
       console.log('Las notificaciones Push necesitan un dispositivo físico.');
     }
   };
-  // --------------------------------------------------------
 
   useEffect(() => {
-    // Cargar preferencias de módulos si estamos en la web
     if (Platform.OS === 'web') {
       const guardados = localStorage.getItem('gs_modulos_preferidos');
       if (guardados) {
@@ -119,11 +103,9 @@ export default function AdminDashboard() {
     if (usuario) {
       cargarDatosDashboard();
 
-      // Le agregamos Date.now() para que el nombre siempre sea único y no choque
       const canal = supabase
         .channel(`dashboard-realtime-${Date.now()}`) 
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'ventas' }, () => {
-          // Tu función de recargar datos (ej. cargarDatosDashboard o fetchMovimientos)
           cargarDatosDashboard(); 
         })
         .subscribe();
@@ -137,7 +119,6 @@ export default function AdminDashboard() {
       const hoy = new Date();
       hoy.setHours(0, 0, 0, 0);
 
-      // 1. Cargar Ventas
       const { data: ventasData, error: ventasError } = await supabase
         .from('ventas')
         .select('*')
@@ -151,26 +132,6 @@ export default function AdminDashboard() {
         const suma = ventasData.reduce((acc, v) => acc + parseFloat(v.total), 0);
         setTotalDinero(suma);
       }
-
-      // 2. Cargar Equipos Pendientes dependiendo del ROL
-      let estadosFiltro = [];
-      if (usuario?.rol === 'admin') {
-        // Al admin le importan los que tiene que reparar
-        estadosFiltro = ['RECIBIDO', 'EN REVISIÓN', 'EN REVISION'];
-      } else {
-        // Al empleado le importan los que ya puede entregar/cobrar
-        estadosFiltro = ['LISTO'];
-      }
-
-      const { count, error: tallerError } = await supabase
-        .from('reparaciones')
-        .select('*', { count: 'exact', head: true })
-        .in('estado', estadosFiltro); 
-
-      if (!tallerError && count !== null) {
-        setEquiposTaller(count);
-      }
-
     } catch (err) {
       console.log("Error dashboard:", err);
     } finally {
@@ -211,7 +172,6 @@ export default function AdminDashboard() {
     setModalModulosVisible(false);
   };
 
-  // AÑADIDO: Mostrar pantalla de carga general si la sesión aún se está verificando
   if (cargandoSesion) {
     return (
       <View style={styles.center}>
@@ -267,30 +227,6 @@ export default function AdminDashboard() {
             <Text style={styles.footerText}>{ventasHoy.length} tickets generados hoy</Text>
           </View>
         </View>
-
-        {equiposTaller > 0 && (
-          <TouchableOpacity 
-            style={styles.tallerIndicator}
-            onPress={() => router.push('/(admin)/taller' as any)}
-            activeOpacity={0.8}
-          >
-            <View style={styles.tallerIndicatorLeft}>
-              <View style={[styles.tallerIconBadge, usuario?.rol !== 'admin' && { backgroundColor: '#dcfce7' }]}>
-                <Ionicons 
-                  name={usuario?.rol === 'admin' ? "build" : "checkmark-done"} 
-                  size={20} 
-                  color={usuario?.rol === 'admin' ? "#e67e22" : "#22c55e"} 
-                />
-              </View>
-              <Text style={styles.tallerIndicatorText}>
-                {usuario?.rol === 'admin' ? 'Equipos en Taller' : 'Equipos Listos'}
-              </Text>
-            </View>
-            <View style={[styles.tallerBadge, usuario?.rol !== 'admin' && { backgroundColor: '#22c55e' }]}>
-              <Text style={styles.tallerBadgeText}>{equiposTaller}</Text>
-            </View>
-          </TouchableOpacity>
-        )}
 
         <View style={styles.sectionHeaderRow}>
           <Text style={styles.sectionTitle}>Módulos de Gestión</Text>
@@ -442,31 +378,6 @@ const styles = StyleSheet.create({
   summaryDivider: { height: 1, backgroundColor: 'rgba(255,255,255,0.2)', marginVertical: 15 },
   summaryFooter: { flexDirection: 'row', alignItems: 'center' },
   footerText: { color: 'rgba(255,255,255,0.7)', fontSize: 12 },
-  
-  tallerIndicator: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#fff',
-    padding: 16,
-    borderRadius: 16,
-    marginBottom: 25,
-    borderWidth: 1,
-    borderColor: '#e2e8f0',
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-  },
-  tallerIndicatorLeft: { flexDirection: 'row', alignItems: 'center' },
-  tallerIconBadge: {
-    backgroundColor: '#fff7ed', 
-    width: 40, height: 40, borderRadius: 12, justifyContent: 'center', alignItems: 'center', marginRight: 12,
-  },
-  tallerIndicatorText: { fontSize: 16, fontWeight: '800', color: '#334155' },
-  tallerBadge: { backgroundColor: '#e74c3c', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
-  tallerBadgeText: { color: '#fff', fontWeight: '900', fontSize: 14 },
 
   sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
   sectionTitle: { fontSize: 18, fontWeight: '800', color: '#1e293b' },

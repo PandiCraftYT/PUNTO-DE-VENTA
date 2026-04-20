@@ -1,29 +1,26 @@
 import React from 'react';
-import { StyleSheet, Text, View, TouchableOpacity } from 'react-native';
+import { StyleSheet, Text, View, TouchableOpacity, Platform } from 'react-native'; // <--- Platform añadido aquí
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, usePathname } from 'expo-router';
 
-// COLOR AZUL DE TU LOGO GS
 const LOGO_BLUE = '#0056FF';
-const INACTIVE_COLOR = '#7f8c8d';
+const INACTIVE_COLOR = '#94a3b8';
 
 export default function FooterNav() {
   const router = useRouter();
   const pathname = usePathname();
 
   // --- LÓGICA PARA DETECTAR RUTA ACTUAL ---
-  const isInventory = pathname.includes('productos') || pathname.includes('nuevo-producto');
-  const isServicios = pathname.includes('servicios');
-  const isHome = !isInventory && !isServicios; 
+  const isHome = pathname === '/(admin)';
+  const isInventory = pathname.includes('productos') || pathname.includes('nuevo-producto') || pathname.includes('producto/');
+  const isVentas = pathname.includes('ventas');
 
-  // --- FUNCIÓN ANTIBUCLE ---
   const manejarNavegacion = (destino: string) => {
-    // Si intentas ir a una ruta y ya estás ahí, NO hagas nada
+    // Evitar recargas si ya estamos en la ruta
     if (destino === '/(admin)' && isHome) return;
     if (destino === '/(admin)/productos' && isInventory) return;
-    if (destino === '/(admin)/servicios' && isServicios) return;
+    if (destino === '/(admin)/ventas' && isVentas) return;
 
-    // Si es una ruta nueva, usamos replace para mantener limpio el historial
     router.replace(destino as any);
   };
 
@@ -35,12 +32,12 @@ export default function FooterNav() {
         onPress={() => manejarNavegacion('/(admin)')}
       >
         <Ionicons 
-          name={isHome ? "home" : "home-outline"} 
-          size={26} 
+          name={isHome ? "grid" : "grid-outline"} 
+          size={24} 
           color={isHome ? LOGO_BLUE : INACTIVE_COLOR} 
         />
         <Text style={[styles.navText, { color: isHome ? LOGO_BLUE : INACTIVE_COLOR }]}>
-          Inicio
+          Panel
         </Text>
       </TouchableOpacity>
       
@@ -50,27 +47,29 @@ export default function FooterNav() {
         onPress={() => manejarNavegacion('/(admin)/productos')}
       >
         <Ionicons 
-          name={isInventory ? "archive" : "archive-outline"} 
-          size={26} 
+          name={isInventory ? "cube" : "cube-outline"} 
+          size={24} 
           color={isInventory ? LOGO_BLUE : INACTIVE_COLOR} 
         />
         <Text style={[styles.navText, { color: isInventory ? LOGO_BLUE : INACTIVE_COLOR }]}>
-          Inventario
+          Stock
         </Text>
       </TouchableOpacity>
 
-      {/* BOTÓN SERVICIOS (TALLER) */}
+      {/* BOTÓN VENTAS (EL MOTOR DEL NEGOCIO) */}
       <TouchableOpacity 
         style={styles.navItem} 
-        onPress={() => manejarNavegacion('/(admin)/servicios')}
+        onPress={() => manejarNavegacion('/(admin)/ventas')}
       >
-        <Ionicons 
-          name={isServicios ? "build" : "build-outline"} 
-          size={26} 
-          color={isServicios ? LOGO_BLUE : INACTIVE_COLOR} 
-        />
-        <Text style={[styles.navText, { color: isServicios ? LOGO_BLUE : INACTIVE_COLOR }]}>
-          Servicios
+        <View style={[styles.salesIconContainer, isVentas && styles.salesIconActive]}>
+          <Ionicons 
+            name={isVentas ? "cart" : "cart-outline"} 
+            size={24} 
+            color={isVentas ? '#fff' : INACTIVE_COLOR} 
+          />
+        </View>
+        <Text style={[styles.navText, { color: isVentas ? LOGO_BLUE : INACTIVE_COLOR }]}>
+          Vender
         </Text>
       </TouchableOpacity>
     </View>
@@ -79,30 +78,42 @@ export default function FooterNav() {
 
 const styles = StyleSheet.create({
   footerNav: {
-    position: 'absolute', // Esto lo ancla hasta abajo
+    position: 'absolute',
     bottom: 0,
     width: '100%',
-    height: 80,
+    height: Platform.OS === 'ios' ? 90 : 75,
     backgroundColor: '#fff',
     flexDirection: 'row',
     justifyContent: 'space-around',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingBottom: 20, // Da espacio para la barrita de los iPhone
-    elevation: 20,
+    borderTopColor: '#f1f5f9',
+    paddingBottom: Platform.OS === 'ios' ? 25 : 10,
+    elevation: 25,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: -3 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
   },
   navItem: { 
     alignItems: 'center',
-    flex: 1 
+    flex: 1,
+    justifyContent: 'center'
   },
   navText: { 
-    fontSize: 12, 
+    fontSize: 11, 
     marginTop: 4, 
-    fontWeight: '700' 
+    fontWeight: '800',
+    letterSpacing: 0.3
+  },
+  salesIconContainer: {
+    padding: 2,
+    borderRadius: 8,
+  },
+  salesIconActive: {
+    backgroundColor: LOGO_BLUE,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 12,
   }
 });

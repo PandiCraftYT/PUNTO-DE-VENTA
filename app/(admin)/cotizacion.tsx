@@ -48,7 +48,7 @@ export default function CotizacionScreen() {
   // Cuando se selecciona algo en el buscador, se AGREGA DIRECTO a la cotización
   const seleccionarDesdeBuscador = (item: any) => {
     const nuevoItem = {
-      id: Date.now().toString() + Math.random().toString(), // ID único por si agregan el mismo varias veces
+      id: Date.now().toString() + Math.random().toString(), 
       descripcion: item.nombre,
       precio: parseFloat(item.precio_venta) || 0
     };
@@ -72,7 +72,7 @@ export default function CotizacionScreen() {
       return;
     }
 
-    let mensaje = `🎮 *Punto de venta* 🎮\n*COTIZACIÓN DE SERVICIO / PRODUCTOS*\n\n`;
+    let mensaje = `🧾 *Cotización* 🧾\n\n`;
     if (cliente) mensaje += `👤 *Cliente:* ${cliente}\n`;
     mensaje += `📅 *Fecha:* ${new Date().toLocaleDateString('es-MX')}\n\n`;
     mensaje += `*Detalles del presupuesto:*\n`;
@@ -82,7 +82,7 @@ export default function CotizacionScreen() {
     });
 
     mensaje += `\n💰 *Total Estimado: $${calcularTotal().toFixed(2)}*\n\n`;
-    mensaje += `_Nota: Precios sujetos a revisión física y disponibilidad de stock._\n`;
+    mensaje += `_Nota: Precios sujetos a cambios y disponibilidad de stock._\n`;
     mensaje += `📍 *¡Estamos a la orden!*`;
 
     const url = `https://wa.me/?text=${encodeURIComponent(mensaje)}`;
@@ -124,8 +124,8 @@ export default function CotizacionScreen() {
         </head>
         <body>
           <div class="header">
-            <h1 class="title">punto de venta</h1>
-            <div class="subtitle">COTIZACIÓN DE SERVICIO</div>
+            <h1 class="title">PUNTO DE VENTA</h1>
+            <div class="subtitle">PRESUPUESTO / COTIZACIÓN</div>
           </div>
           
           <div class="info">
@@ -150,7 +150,7 @@ export default function CotizacionScreen() {
           </div>
 
           <div class="footer">
-            * Los precios cotizados pueden variar dependiendo de la revisión física profunda del equipo.<br>
+            * Los precios cotizados pueden variar según disponibilidad de stock al momento de la compra.<br>
             ¡Gracias por tu preferencia!
           </div>
           <script>
@@ -213,7 +213,7 @@ export default function CotizacionScreen() {
             onPress={() => setModalBusqueda({ visible: true, tipo: 'servicio' })}
           >
             <Ionicons name="search" size={20} color={LOGO_BLUE} style={{ marginRight: 10 }} />
-            <Text style={styles.fakeSearchText}>Buscar Servicios (Ej. Limpieza, HDMI)...</Text>
+            <Text style={styles.fakeSearchText}>Buscar Servicios (Ej. Envío, Mano de obra)...</Text>
           </TouchableOpacity>
 
           <TouchableOpacity 
@@ -221,7 +221,7 @@ export default function CotizacionScreen() {
             onPress={() => setModalBusqueda({ visible: true, tipo: 'inventario' })}
           >
             <Ionicons name="search" size={20} color="#2ecc71" style={{ marginRight: 10 }} />
-            <Text style={styles.fakeSearchText}>Buscar Productos o Consolas...</Text>
+            <Text style={styles.fakeSearchText}>Buscar Productos...</Text>
           </TouchableOpacity>
         </View>
 
@@ -229,7 +229,7 @@ export default function CotizacionScreen() {
         <Text style={styles.sectionTitle}>DETALLE DE LA COTIZACIÓN</Text>
         <View style={{ paddingBottom: 100 }}>
           {items.length === 0 ? (
-             <Text style={styles.emptyText}>Agrega servicios para armar la cotización.</Text>
+             <Text style={styles.emptyText}>Agrega servicios o productos para armar la cotización.</Text>
           ) : (
             items.map((item) => (
               <View key={item.id} style={styles.itemCard}>

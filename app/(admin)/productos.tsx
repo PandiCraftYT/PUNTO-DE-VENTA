@@ -18,14 +18,13 @@ const LOGO_BLUE = '#0056FF';
 export default function ListaProductosScreen() {
   const router = useRouter();
   
-  // ESTADOS PARA DATOS
   const [productos, setProductos] = useState<any[]>([]);
   const [productosFiltrados, setProductosFiltrados] = useState<any[]>([]);
   const [cargando, setCargando] = useState(true);
   const [refrescando, setRefrescando] = useState(false);
   const [busqueda, setBusqueda] = useState('');
 
-  // --- ACTUALIZACIÓN EN TIEMPO REAL (WEBSOCKETS) ---
+  // --- ACTUALIZACIÓN EN TIEMPO REAL ---
   useEffect(() => {
     cargarProductos();
 
@@ -34,19 +33,13 @@ export default function ListaProductosScreen() {
       .on(
         'postgres_changes', 
         { event: '*', schema: 'public', table: 'productos' }, 
-        (payload) => {
-          console.log("¡Cambio en inventario detectado!", payload);
-          cargarProductos(false); 
-        }
+        () => { cargarProductos(false); }
       )
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(canalInventario);
-    };
+    return () => { supabase.removeChannel(canalInventario); };
   }, []);
 
-  // 1. CARGAR PRODUCTOS DESDE SUPABASE Y ORDENAR
   const cargarProductos = async (mostrarCarga: boolean = true) => {
     try {
       if (mostrarCarga) setCargando(true);
@@ -54,11 +47,11 @@ export default function ListaProductosScreen() {
       const { data, error } = await supabase
         .from('productos')
         .select('*')
-        .order('creado_at', { ascending: false });
+        .order('nombre', { ascending: true });
 
       if (error) throw error;
       
-      // --- LÓGICA: ORDENAR AGOTADOS AL FINAL ---
+      // ORDENAR: Agotados al final
       const dataOrdenada = (data || []).sort((a, b) => {
         if (a.stock <= 0 && b.stock > 0) return 1;
         if (b.stock <= 0 && a.stock > 0) return -1;
@@ -66,18 +59,8 @@ export default function ListaProductosScreen() {
       });
 
       setProductos(dataOrdenada);
-      
-      // Mantiene el filtro si había una búsqueda escrita
-      if (busqueda.trim() === '') {
-        setProductosFiltrados(dataOrdenada);
-      } else {
-        const texto = busqueda.toLowerCase();
-        setProductosFiltrados(dataOrdenada.filter(p => 
-          p.nombre?.toLowerCase().includes(texto) || 
-          p.localizacion?.toLowerCase().includes(texto) ||
-          p.categoria?.toLowerCase().includes(texto)
-        ));
-      }
+      filtrarLocalmente(busqueda, dataOrdenada);
+
     } catch (error: any) {
       console.error("Error cargando productos:", error.message);
     } finally {
@@ -86,75 +69,61 @@ export default function ListaProductosScreen() {
     }
   };
 
+  const filtrarLocalmente = (texto: string, listaCompleta: any[]) => {
+    if (texto.trim() === '') {
+      setProductosFiltrados(listaCompleta);
+    } else {
+      const q = texto.toLowerCase();
+      setProductosFiltrados(listaCompleta.filter(p => 
+        p.nombre?.toLowerCase().includes(q) || 
+        p.categoria?.toLowerCase().includes(q) ||
+        p.codigo_barras?.includes(q)
+      ));
+    }
+  };
+
+  useEffect(() => {
+    filtrarLocalmente(busqueda, productos);
+  }, [busqueda, productos]);
+
   useFocusEffect(
     useCallback(() => {
-      cargarProductos();
+      cargarProductos(false);
     }, [])
   );
 
-  // 2. LÓGICA DEL BUSCADOR
-  useEffect(() => {
-    if (busqueda.trim() === '') {
-      setProductosFiltrados(productos);
-    } else {
-      const texto = busqueda.toLowerCase();
-      const filtrados = productos.filter(p => 
-        p.nombre?.toLowerCase().includes(texto) || 
-        p.localizacion?.toLowerCase().includes(texto) ||
-        p.categoria?.toLowerCase().includes(texto)
-      );
-      setProductosFiltrados(filtrados);
+  const ejecutarBorrado = async (id: string) => {
+    try {
+      const { error } = await supabase.from('productos').delete().eq('id', id);
+      if (error) throw error;
+      cargarProductos(false); 
+    } catch (error: any) {
+      Alert.alert("Error", error.message);
     }
-  }, [busqueda, productos]);
+  };
 
   const confirmarEliminar = (id: string, nombre: string) => {
     if (Platform.OS === 'web') {
-      const confirmar = window.confirm(`¿Seguro que quieres eliminar "${nombre}" para siempre?`);
-      if (confirmar) ejecutarBorrado(id);
+      if (window.confirm(`¿Eliminar "${nombre}"?`)) ejecutarBorrado(id);
     } else {
-      Alert.alert("¿Borrar Producto?", `Estás a punto de eliminar "${nombre}".`, [
+      Alert.alert("Borrar", `¿Eliminar "${nombre}"?`, [
         { text: "Cancelar", style: "cancel" },
-        { text: "Sí, borrar", style: "destructive", onPress: () => ejecutarBorrado(id) }
+        { text: "Eliminar", style: "destructive", onPress: () => ejecutarBorrado(id) }
       ]);
     }
   };
 
-  const ejecutarBorrado = async (id: string) => {
-    try {
-      setCargando(true);
-      const { error } = await supabase.from('productos').delete().eq('id', id);
-      if (error) throw error;
-      cargarProductos(); 
-    } catch (error: any) {
-      if (Platform.OS === 'web') window.alert("Error: " + error.message);
-      else Alert.alert("Error", error.message);
-      setCargando(false);
-    }
-  };
+  const renderRightActions = (item: any) => (
+    <View style={styles.swipeActionsContainer}>
+      <TouchableOpacity style={styles.swipeEditBtn} onPress={() => router.push(`/(admin)/producto/${item.id}` as any)}>
+        <Ionicons name="pencil" size={20} color="#fff" />
+      </TouchableOpacity>
+      <TouchableOpacity style={styles.swipeDeleteBtn} onPress={() => confirmarEliminar(item.id, item.nombre)}>
+        <Ionicons name="trash" size={20} color="#fff" />
+      </TouchableOpacity>
+    </View>
+  );
 
-  const renderRightActions = (item: any) => {
-    return (
-      <View style={styles.swipeActionsContainer}>
-        <TouchableOpacity 
-          style={styles.swipeEditBtn}
-          onPress={() => router.push(`/(admin)/producto/${item.id}` as any)}
-        >
-          <Ionicons name="pencil" size={22} color="#fff" />
-          <Text style={styles.swipeActionText}>Editar</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.swipeDeleteBtn}
-          onPress={() => confirmarEliminar(item.id, item.nombre)}
-        >
-          <Ionicons name="trash" size={22} color="#fff" />
-          <Text style={styles.swipeActionText}>Borrar</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  };
-
-  // 3. DISEÑO DE LA TARJETA CON LÓGICA DE AGOTADO
   const renderItem = ({ item }: { item: any }) => {
     const isAgotado = item.stock <= 0;
 
@@ -162,21 +131,19 @@ export default function ListaProductosScreen() {
       <Swipeable renderRightActions={() => renderRightActions(item)} overshootRight={false}>
         <TouchableOpacity 
           style={[styles.card, isAgotado && styles.cardAgotado]} 
-          activeOpacity={0.9} 
           onPress={() => router.push(`/(admin)/producto/${item.id}` as any)}
         >
-          <View style={[styles.imageContainer, isAgotado && { opacity: 0.6 }]}>
-            {item.imagen_url && item.imagen_url.trim() !== '' ? (
+          <View style={styles.imageContainer}>
+            {item.imagen_url ? (
               <Image source={{ uri: item.imagen_url }} style={styles.prodImg} />
             ) : (
-              <Ionicons name="cube-outline" size={24} color="#ccc" />
+              <Ionicons name="cube-outline" size={24} color="#cbd5e1" />
             )}
           </View>
 
           <View style={styles.infoContainer}>
             <Text style={[styles.prodNombre, isAgotado && { color: '#94a3b8' }]} numberOfLines={1}>{item.nombre}</Text>
-            <Text style={styles.prodLocal}>{item.localizacion || 'Local 1'}</Text>
-            {/* --- APLICAMOS EL FORMATO DE MONEDA AQUÍ --- */}
+            <Text style={styles.prodCat}>{item.categoria || 'Sin categoría'}</Text>
             <Text style={[styles.prodPrecio, isAgotado && styles.precioAgotado]}>
               {formatoMoneda(item.precio_venta)}
             </Text>
@@ -184,7 +151,7 @@ export default function ListaProductosScreen() {
 
           <View style={[styles.stockBadge, isAgotado && styles.stockBadgeAgotado]}>
             <Text style={[styles.stockText, isAgotado && styles.stockTextAgotado]}>
-              {isAgotado ? 'AGOTADO' : `${item.stock} pz`}
+              {isAgotado ? 'SIN STOCK' : `${item.stock} pz`}
             </Text>
           </View>
         </TouchableOpacity>
@@ -199,19 +166,13 @@ export default function ListaProductosScreen() {
 
         <View style={styles.searchSection}>
           <View style={styles.searchBar}>
-            <Ionicons name="search" size={20} color="#999" />
+            <Ionicons name="search" size={20} color="#94a3b8" />
             <TextInput 
               style={[styles.searchInput, Platform.OS === 'web' && { outlineStyle: 'none' } as any]} 
-              placeholder="Buscar un producto..."
-              placeholderTextColor="#a0aec0"
+              placeholder="Buscar por nombre, categoría o código..."
               value={busqueda}
               onChangeText={setBusqueda}
             />
-            {busqueda !== '' && (
-              <TouchableOpacity onPress={() => setBusqueda('')}>
-                <Ionicons name="close-circle" size={20} color="#ccc" />
-              </TouchableOpacity>
-            )}
           </View>
         </View>
 
@@ -223,26 +184,18 @@ export default function ListaProductosScreen() {
             keyExtractor={(item) => item.id.toString()}
             renderItem={renderItem}
             contentContainerStyle={styles.listContent}
-            refreshControl={
-              <RefreshControl refreshing={refrescando} onRefresh={() => {
-                setRefrescando(true);
-                cargarProductos();
-              }} />
-            }
+            refreshControl={<RefreshControl refreshing={refrescando} onRefresh={() => cargarProductos()} />}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
-                <Ionicons name="search-outline" size={50} color="#ccc" />
-                <Text style={styles.emptyText}>No se encontraron productos.</Text>
+                <Ionicons name="cube-outline" size={50} color="#cbd5e1" />
+                <Text style={styles.emptyText}>No hay productos en el inventario.</Text>
               </View>
             }
           />
         )}
 
-        <TouchableOpacity 
-          style={styles.fab} 
-          onPress={() => router.push('/(admin)/nuevo-producto' as any)}
-        >
-          <Ionicons name="add" size={35} color="#fff" />
+        <TouchableOpacity style={styles.fab} onPress={() => router.push('/(admin)/nuevo-producto' as any)}>
+          <Ionicons name="add" size={30} color="#fff" />
         </TouchableOpacity>
 
         <FooterNav />
@@ -254,93 +207,27 @@ export default function ListaProductosScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f6f7fb' },
   center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  
-  searchSection: { padding: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-  searchBar: { 
-    flexDirection: 'row', 
-    backgroundColor: '#f8f9fa', 
-    paddingHorizontal: 15, 
-    height: 50, 
-    borderRadius: 12, 
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#eee'
-  },
-  searchInput: { flex: 1, marginLeft: 10, fontSize: 16, color: '#333', height: '100%' }, 
-
-  listContent: { padding: 15, paddingBottom: 150 },
-  card: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderRadius: 15,
-    padding: 12,
-    marginBottom: 12,
-    alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 5,
-  },
-  cardAgotado: { backgroundColor: '#fdfdfd', opacity: 0.7 },
-  precioAgotado: { color: '#94a3b8' },
-  stockBadgeAgotado: { backgroundColor: '#fef2f2' },
-  stockTextAgotado: { color: '#ef4444', fontSize: 11, letterSpacing: 0.5 },
-
-  imageContainer: { width: 55, height: 55, backgroundColor: '#f8f9fa', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 15, overflow: 'hidden' },
-  prodImg: { width: '100%', height: '100%', borderRadius: 10 },
+  searchSection: { padding: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  searchBar: { flexDirection: 'row', backgroundColor: '#f8fafc', paddingHorizontal: 15, height: 48, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#e2e8f0' },
+  searchInput: { flex: 1, marginLeft: 10, fontSize: 15, color: '#1e293b' },
+  listContent: { padding: 15, paddingBottom: 120 },
+  card: { flexDirection: 'row', backgroundColor: '#fff', borderRadius: 16, padding: 12, marginBottom: 10, alignItems: 'center', elevation: 2, shadowColor: '#000', shadowOpacity: 0.05, shadowRadius: 5 },
+  cardAgotado: { opacity: 0.6 },
+  imageContainer: { width: 50, height: 50, backgroundColor: '#f8fafc', borderRadius: 10, justifyContent: 'center', alignItems: 'center', marginRight: 15, overflow: 'hidden' },
+  prodImg: { width: '100%', height: '100%' },
   infoContainer: { flex: 1 },
-  prodNombre: { fontSize: 16, fontWeight: 'bold', color: '#333' },
-  prodLocal: { fontSize: 12, color: '#999', marginTop: 2 },
-  prodPrecio: { fontSize: 15, color: '#27ae60', fontWeight: 'bold', marginTop: 4 },
-  stockBadge: { backgroundColor: '#eef2ff', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10 },
-  stockText: { color: LOGO_BLUE, fontWeight: 'bold', fontSize: 13 },
-
-  swipeActionsContainer: {
-    flexDirection: 'row',
-    marginBottom: 12,
-  },
-  swipeEditBtn: {
-    backgroundColor: '#f39c12',
-    width: 75,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderTopLeftRadius: 15,
-    borderBottomLeftRadius: 15,
-  },
-  swipeDeleteBtn: {
-    backgroundColor: '#e74c3c',
-    width: 75,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderTopRightRadius: 15,
-    borderBottomRightRadius: 15,
-  },
-  swipeActionText: {
-    color: '#fff',
-    fontSize: 11,
-    fontWeight: 'bold',
-    marginTop: 5,
-  },
-
-  fab: {
-    position: 'absolute',
-    right: 25,
-    bottom: 110, 
-    backgroundColor: LOGO_BLUE,
-    width: 65,
-    height: 65,
-    borderRadius: 32.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    elevation: 10,
-    shadowColor: LOGO_BLUE,
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.4,
-    shadowRadius: 8,
-    zIndex: 999
-  },
-
+  prodNombre: { fontSize: 15, fontWeight: 'bold', color: '#1e293b' },
+  prodCat: { fontSize: 11, color: '#94a3b8', textTransform: 'uppercase', marginTop: 2 },
+  prodPrecio: { fontSize: 14, color: '#16a34a', fontWeight: '800', marginTop: 4 },
+  precioAgotado: { color: '#94a3b8' },
+  stockBadge: { backgroundColor: '#f0f7ff', paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8 },
+  stockText: { color: LOGO_BLUE, fontWeight: 'bold', fontSize: 12 },
+  stockBadgeAgotado: { backgroundColor: '#fef2f2' },
+  stockTextAgotado: { color: '#ef4444' },
+  swipeActionsContainer: { flexDirection: 'row', marginLeft: 10 },
+  swipeEditBtn: { backgroundColor: '#f39c12', width: 50, justifyContent: 'center', alignItems: 'center', borderRadius: 12, marginRight: 5 },
+  swipeDeleteBtn: { backgroundColor: '#ef4444', width: 50, justifyContent: 'center', alignItems: 'center', borderRadius: 12 },
+  fab: { position: 'absolute', right: 20, bottom: 100, backgroundColor: LOGO_BLUE, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 5, zIndex: 10 },
   emptyContainer: { alignItems: 'center', marginTop: 100 },
-  emptyText: { color: '#999', marginTop: 15, fontSize: 16 }
+  emptyText: { color: '#94a3b8', marginTop: 15, fontSize: 14 }
 });

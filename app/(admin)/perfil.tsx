@@ -6,13 +6,13 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../lib/auth_context';
 import { supabase } from '../lib/supabase';
-import { useRouter } from 'expo-router'; // Importamos el router para volver atrás
+import { useRouter } from 'expo-router';
 
 const LOGO_BLUE = '#0056FF';
 
 export default function PerfilScreen() {
   const { usuario, setUsuario } = useAuth();
-  const router = useRouter(); // Inicializamos el router
+  const router = useRouter(); 
   const esAdmin = usuario?.rol === 'admin';
 
   // ESTADOS
@@ -20,10 +20,9 @@ export default function PerfilScreen() {
   const [loading, setLoading] = useState(false);
 
   const [nombre, setNombre] = useState(usuario?.nombre || '');
-  const [numCuenta, setNumCuenta] = useState(usuario?.num_cuenta || '');
-  const [pin, setPin] = useState(usuario?.pin || '');
+  const [numCuenta, setNumCuenta] = useState(usuario?.num_cuenta?.toString() || '');
+  const [pin, setPin] = useState(usuario?.pin?.toString() || '');
   const [rol, setRol] = useState(usuario?.rol || '');
-  const [activo, setActivo] = useState(usuario?.activo ? 'true' : 'false');
 
   const handleGuardar = async () => {
     if (!numCuenta || !pin || (esAdmin && !nombre)) {
@@ -41,7 +40,6 @@ export default function PerfilScreen() {
       if (esAdmin) {
         datosActualizados.nombre = nombre.trim();
         datosActualizados.rol = rol.trim().toLowerCase();
-        datosActualizados.activo = activo === 'true';
       }
 
       const { error, data } = await supabase
@@ -56,11 +54,12 @@ export default function PerfilScreen() {
       setUsuario(data);
       setIsEditing(false);
       
-      if (Platform.OS === 'web') window.alert("¡Cambios guardados!");
+      if (Platform.OS === 'web') window.alert("¡Cambios guardados exitosamente!");
       else Alert.alert("Éxito", "Perfil actualizado.");
 
     } catch (error: any) {
-      Alert.alert("Error", error.message);
+      if (Platform.OS === 'web') window.alert("Error: " + error.message);
+      else Alert.alert("Error", error.message);
     } finally {
       setLoading(false);
     }
@@ -68,14 +67,13 @@ export default function PerfilScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* HEADER MINIMALISTA CON BOTÓN ATRÁS */}
+      {/* HEADER MINIMALISTA */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={28} color="#333" />
         </TouchableOpacity>
-        {/* Dejamos solo el título principal */}
         <Text style={styles.headerTitle}>MI PERFIL</Text>
-        <View style={{ width: 40 }} /> {/* Espaciador para centrar el título */}
+        <View style={{ width: 40 }} />
       </View>
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
@@ -109,24 +107,24 @@ export default function PerfilScreen() {
 
           <View style={styles.infoCard}>
             <EditableRow 
-              icon="id-card-outline" label="Número de Cuenta" 
+              icon="id-card-outline" label="Número de Empleado / Usuario" 
               value={numCuenta} onChangeText={setNumCuenta}
               isEditing={isEditing} editable={true} 
-              keyboardType="numeric"
+              keyboardType="default"
             />
             <View style={styles.divider} />
 
             <EditableRow 
-              icon="key-outline" label="PIN de Acceso" 
+              icon="key-outline" label="PIN de Acceso (Contraseña)" 
               value={pin} onChangeText={setPin}
               isEditing={isEditing} editable={true}
               secureTextEntry={!isEditing}
-              keyboardType="numeric"
+              keyboardType="default"
             />
             <View style={styles.divider} />
 
             <EditableRow 
-              icon="person-outline" label="Nombre" 
+              icon="person-outline" label="Nombre Completo" 
               value={nombre} onChangeText={setNombre}
               isEditing={isEditing} editable={esAdmin} 
             />
@@ -146,7 +144,7 @@ export default function PerfilScreen() {
               </TouchableOpacity>
 
               <TouchableOpacity style={[styles.btnAction, styles.btnSave]} onPress={handleGuardar}>
-                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSaveText}>Guardar</Text>}
+                {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnSaveText}>Guardar Cambios</Text>}
               </TouchableOpacity>
             </View>
           )}
@@ -195,24 +193,24 @@ const styles = StyleSheet.create({
     borderBottomColor: '#f1f5f9'
   },
   backBtn: { padding: 5 },
-  headerTitle: { fontSize: 18, fontWeight: '900', color: '#1e293b' },
+  headerTitle: { fontSize: 16, fontWeight: '900', color: '#1e293b' },
   scrollContent: { padding: 20 },
   profileHeader: { alignItems: 'center', marginTop: 10, marginBottom: 25 },
   avatarContainer: { 
-    width: 100, height: 100, borderRadius: 50, backgroundColor: LOGO_BLUE, 
-    justifyContent: 'center', alignItems: 'center', elevation: 6, marginBottom: 15 
+    width: 90, height: 90, borderRadius: 45, backgroundColor: LOGO_BLUE, 
+    justifyContent: 'center', alignItems: 'center', elevation: 4, marginBottom: 15 
   },
-  userName: { fontSize: 24, fontWeight: '900', color: '#1e293b' },
-  userRole: { fontSize: 13, color: '#64748b', fontWeight: 'bold', letterSpacing: 1 },
+  userName: { fontSize: 22, fontWeight: '900', color: '#1e293b' },
+  userRole: { fontSize: 12, color: '#64748b', fontWeight: 'bold', letterSpacing: 1, marginTop: 4 },
   editingText: { fontSize: 14, color: '#f39c12', fontWeight: 'bold' },
   headerTitleRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
   sectionTitle: { fontSize: 14, fontWeight: 'bold', color: '#94a3b8' },
   editText: { color: LOGO_BLUE, fontWeight: 'bold' },
-  infoCard: { backgroundColor: '#fff', borderRadius: 20, padding: 20, elevation: 3 },
+  infoCard: { backgroundColor: '#fff', borderRadius: 20, padding: 20, elevation: 2, borderWidth: 1, borderColor: '#f1f5f9' },
   infoRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
-  iconBox: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#f1f5f9', justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+  iconBox: { width: 40, height: 40, borderRadius: 10, backgroundColor: '#f8fafc', justifyContent: 'center', alignItems: 'center', marginRight: 15 },
   textContainer: { flex: 1 },
-  infoLabel: { fontSize: 12, color: '#94a3b8' },
+  infoLabel: { fontSize: 12, color: '#94a3b8', marginBottom: 2 },
   infoValue: { fontSize: 16, fontWeight: '600' },
   divider: { height: 1, backgroundColor: '#f1f5f9', marginVertical: 5 },
   editInput: { borderBottomWidth: 1, borderBottomColor: LOGO_BLUE, fontSize: 16, color: '#1e293b', paddingVertical: 5 },

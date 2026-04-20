@@ -27,7 +27,6 @@ export default function EditarProductoScreen() {
   const [codigoBarras, setCodigoBarras] = useState('');
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState(''); 
-  const [localizacion, setLocalizacion] = useState('HUIZACHES'); 
   const [precioVenta, setPrecioVenta] = useState('');
   const [precioCosto, setPrecioCosto] = useState('');
   const [stock, setStock] = useState('');
@@ -52,7 +51,6 @@ export default function EditarProductoScreen() {
         setCodigoBarras(data.codigo_barras || '');
         setNombre(data.nombre || '');
         setDescripcion(data.descripcion || ''); 
-        setLocalizacion(data.localizacion || 'HUIZACHES');
         setPrecioVenta(data.precio_venta?.toString() || '0');
         setPrecioCosto(data.precio_costo?.toString() || '0');
         setStock(data.stock?.toString() || '0');
@@ -143,18 +141,15 @@ export default function EditarProductoScreen() {
       // Si la imagen empieza con file:// o data:image (si es web), hay que subirla
       if (imagenUri && (imagenUri.startsWith('file://') || imagenUri.startsWith('data:image'))) {
         const fileExt = imagenUri.split('.').pop() || 'jpg';
-        // Generamos un nombre único y limpio
         const fileName = `${id}_${Math.random().toString(36).substring(7)}.${fileExt}`;
         const filePath = `productos/${fileName}`;
         
         const response = await fetch(imagenUri);
         const blob = await response.blob();
         
-        // Subimos la imagen
         const { error: uploadError } = await supabase.storage.from('inventario').upload(filePath, blob, { upsert: true });
         if (uploadError) throw uploadError;
 
-        // --- LA MAGIA CORREGIDA PARA OBTENER LA URL ---
         const { data } = supabase.storage.from('inventario').getPublicUrl(filePath);
         finalImageUrl = data.publicUrl;
       }
@@ -174,12 +169,11 @@ export default function EditarProductoScreen() {
           codigo_barras: codigoBarras.trim() || null,
           nombre: nombre,
           descripcion: descripcion, 
-          localizacion: localizacion,
           precio_venta: parseFloat(precioVenta) || 0,
           precio_costo: parseFloat(precioCosto) || 0,
           stock: parseInt(stock) || 0,
           categoria: categoria,
-          imagen_url: finalImageUrl, // Ahora sí guardará el enlace de internet
+          imagen_url: finalImageUrl,
           historial_cambios: nuevoHistorial 
         })
         .eq('id', id);
@@ -193,7 +187,7 @@ export default function EditarProductoScreen() {
         Alert.alert("Éxito", "Producto actualizado", [{ text: "OK", onPress: () => router.replace('/(admin)/productos') }]);
       }
     } catch (error: any) {
-      if (Platform.OS === 'web') window.alert("Error guardando foto: " + error.message);
+      if (Platform.OS === 'web') window.alert("Error guardando cambios: " + error.message);
       else Alert.alert("Error", error.message);
     } finally { 
       setProcesando(false); 
@@ -286,22 +280,6 @@ export default function EditarProductoScreen() {
         <Text style={styles.label}>CATEGORÍA</Text>
         <TextInput style={styles.input} value={categoria} onChangeText={setCategoria} placeholder="Ej: Gorras, Videojuegos..." />
 
-        <Text style={styles.label}>LOCALIZACIÓN</Text>
-        <View style={styles.rowSelector}>
-          <TouchableOpacity 
-            style={[styles.tab, localizacion === 'HUIZACHES' && styles.tabActive]}
-            onPress={() => setLocalizacion('HUIZACHES')}
-          >
-            <Text style={[styles.tabText, localizacion === 'HUIZACHES' && styles.textWhite]}>LOS HUIZACHES</Text>
-          </TouchableOpacity>
-          <TouchableOpacity 
-            style={[styles.tab, localizacion === 'CENTRO' && styles.tabActive]}
-            onPress={() => setLocalizacion('CENTRO')}
-          >
-            <Text style={[styles.tabText, localizacion === 'CENTRO' && styles.textWhite]}>CENTRO</Text>
-          </TouchableOpacity>
-        </View>
-
         <View style={styles.gridRow}>
           <View style={styles.gridHalf}>
             <Text style={styles.label}>PRECIO VENTA *</Text>
@@ -374,7 +352,7 @@ export default function EditarProductoScreen() {
                 ))
               )}
 
-              {/* EVENTO PRINCIPAL: CREACIÓN DEL PRODUCTO (Siempre hasta abajo) */}
+              {/* EVENTO PRINCIPAL: CREACIÓN DEL PRODUCTO */}
               <View style={styles.historialItem}>
                 <View style={styles.historialDotContainer}>
                   <View style={styles.historialDotGreen} />
@@ -428,11 +406,6 @@ const styles = StyleSheet.create({
   barcodeRow: { flexDirection: 'row', alignItems: 'center' },
   generateBtn: { backgroundColor: '#2ecc71', width: 55, height: 55, borderRadius: 12, justifyContent: 'center', alignItems: 'center', elevation: 2, marginRight: 8 },
   printMiniBtn: { backgroundColor: LOGO_BLUE, width: 55, height: 55, borderRadius: 12, justifyContent: 'center', alignItems: 'center', elevation: 2 },
-  rowSelector: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 5 },
-  tab: { flex: 1, padding: 15, borderRadius: 12, alignItems: 'center', marginHorizontal: 2, borderWidth: 1, borderColor: '#e1e8ed', backgroundColor: '#fff' },
-  tabActive: { backgroundColor: LOGO_BLUE, borderColor: LOGO_BLUE },
-  tabText: { fontWeight: 'bold', color: LOGO_BLUE, fontSize: 11 },
-  textWhite: { color: '#fff' },
   gridRow: { flexDirection: 'row', marginTop: 5 },
   gridHalf: { flex: 1 },
   

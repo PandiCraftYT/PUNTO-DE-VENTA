@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { Stack } from 'expo-router';
-import { useAuth } from '../lib/auth_context'; // Recuerda que si le pusiste el guion bajo a la carpeta, aquí sería ../_lib/auth_context
+import { useAuth } from '../lib/auth_context'; 
 import { ActivityIndicator, View } from 'react-native';
 
 // IMPORTAMOS TU PANTALLA DE LOGIN DIRECTAMENTE
@@ -29,19 +29,21 @@ export default function AdminLayout() {
   return (
     <View style={{ flex: 1 }}>
       <Stack screenOptions={{ headerShown: false }}>
+        {/* --- MÓDULO DE VENTAS --- */}
         <Stack.Screen name="index" />
-        <Stack.Screen name="productos" /> 
         <Stack.Screen name="ventas" /> 
-        <Stack.Screen name="nuevo_gasto" /> 
-        <Stack.Screen name="perfil" />
-        <Stack.Screen name="usuarios" /> 
-        <Stack.Screen name="taller" /> 
-        <Stack.Screen name="inversion" /> 
-        <Stack.Screen name="servicios" /> 
         <Stack.Screen name="clientes" /> 
-        <Stack.Screen name="reportes" /> 
-        <Stack.Screen name="checador" /> 
         <Stack.Screen name="cotizacion" /> 
+        
+        {/* --- MÓDULO DE INVENTARIO --- */}
+        <Stack.Screen name="productos" /> 
+        <Stack.Screen name="nuevo-producto" /> 
+        <Stack.Screen name="producto/[id]" /> 
+
+        {/* --- MÓDULO DE ADMINISTRACIÓN --- */}
+        <Stack.Screen name="historial" /> 
+        <Stack.Screen name="usuarios" /> 
+        <Stack.Screen name="perfil" />
       </Stack>
     </View>
   );

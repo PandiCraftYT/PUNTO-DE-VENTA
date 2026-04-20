@@ -22,7 +22,7 @@ export default function NuevoProductoScreen() {
   const [codigoBarras, setCodigoBarras] = useState(''); 
   const [nombre, setNombre] = useState('');
   const [descripcion, setDescripcion] = useState('');
-  const [localizacion, setLocalizacion] = useState('HUIZACHES'); 
+  const [localizacion, setLocalizacion] = useState('MOSTRADOR'); 
   const [precioVenta, setPrecioVenta] = useState('');
   const [precioCosto, setPrecioCosto] = useState('');
   const [stock, setStock] = useState('1');
@@ -163,9 +163,8 @@ export default function NuevoProductoScreen() {
             precio_costo: parseFloat(precioCosto) || 0,
             stock: parseInt(stock),
             categoria: categoria.trim() || 'General', 
-            imagen_url: finalImageUrl, // <-- Guardamos la URL pública
-            registrado_por_nombre: usuario?.nombre || 'Admin GS',
-            registrado_por_cuenta: usuario?.num_cuenta || '9999',
+            imagen_url: finalImageUrl, 
+            registrado_por_nombre: usuario?.nombre || 'Admin',
             creado_at: new Date()
           }
         ]);
@@ -215,7 +214,6 @@ export default function NuevoProductoScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* CABECERA LIMPIA (SIN CUADRO GRIS EN EL BOTÓN) */}
       <View style={styles.headerSimplificado}>
         <TouchableOpacity style={styles.backButtonSimple} onPress={() => router.back()}>
           <Ionicons name="arrow-back" size={24} color="#333" />
@@ -260,37 +258,35 @@ export default function NuevoProductoScreen() {
               value={codigoBarras} 
               onChangeText={setCodigoBarras} 
             />
-            {/* BOTÓN GENERAR CÓDIGO (VERDE) */}
             <TouchableOpacity style={styles.generateBtn} onPress={generarCodigo}>
               <Ionicons name="barcode-outline" size={24} color="#fff" />
             </TouchableOpacity>
             
-            {/* BOTÓN IMPRIMIR ETIQUETA (AZUL) */}
             <TouchableOpacity style={styles.printBtnBlue} onPress={imprimirEtiqueta}>
               <Ionicons name="print" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
 
           <Text style={styles.label}>NOMBRE DEL ARTÍCULO *</Text>
-          <TextInput style={styles.input} placeholder="Ej: Nintendo Switch" placeholderTextColor="#a0aec0" value={nombre} onChangeText={setNombre} />
+          <TextInput style={styles.input} placeholder="Ej: Playera Básica" placeholderTextColor="#a0aec0" value={nombre} onChangeText={setNombre} />
 
           <Text style={styles.label}>DESCRIPCIÓN (OPCIONAL)</Text>
           <TextInput style={[styles.input, { height: 80 }]} placeholder="Detalles..."  placeholderTextColor="#a0aec0" multiline value={descripcion} onChangeText={setDescripcion} />
 
-          <Text style={styles.label}>LOCALIZACIÓN / TIENDA</Text>
+          <Text style={styles.label}>LOCALIZACIÓN EN INVENTARIO</Text>
           <View style={styles.rowSelector}>
             <TouchableOpacity 
-              style={[styles.tabSelector, localizacion === 'HUIZACHES' && styles.tabSelectorActive]}
-              onPress={() => setLocalizacion('HUIZACHES')}
+              style={[styles.tabSelector, localizacion === 'MOSTRADOR' && styles.tabSelectorActive]}
+              onPress={() => setLocalizacion('MOSTRADOR')}
             >
-              <Text style={[styles.tabSelectorText, localizacion === 'HUIZACHES' && styles.textWhite]}>LOS HUIZACHES</Text>
+              <Text style={[styles.tabSelectorText, localizacion === 'MOSTRADOR' && styles.textWhite]}>MOSTRADOR</Text>
             </TouchableOpacity>
 
             <TouchableOpacity 
-              style={[styles.tabSelector, localizacion === 'CENTRO' && styles.tabSelectorActive]}
-              onPress={() => setLocalizacion('CENTRO')}
+              style={[styles.tabSelector, localizacion === 'ALMACEN' && styles.tabSelectorActive]}
+              onPress={() => setLocalizacion('ALMACEN')}
             >
-              <Text style={[styles.tabSelectorText, localizacion === 'CENTRO' && styles.textWhite]}>CENTRO</Text>
+              <Text style={[styles.tabSelectorText, localizacion === 'ALMACEN' && styles.textWhite]}>ALMACÉN</Text>
             </TouchableOpacity>
           </View>
 
@@ -380,7 +376,6 @@ export default function NuevoProductoScreen() {
             </View>
           )}
 
-          {/* BOTÓN GUARDAR */}
           <TouchableOpacity 
             style={[styles.saveBtn, loading && { opacity: 0.7 }]} 
             onPress={handleGuardar} 
@@ -427,7 +422,6 @@ const styles = StyleSheet.create({
   label: { fontSize: 11, fontWeight: 'bold', color: '#7f8c8d', marginBottom: 8, marginTop: 15, textTransform: 'uppercase' },
   input: { backgroundColor: '#fff', borderRadius: 12, padding: 15, fontSize: 16, borderWidth: 1, borderColor: '#e1e8ed', color: '#2c3e50', ...(Platform.OS === 'web' && { outlineStyle: 'none' } as any) },
   
-  // ESTILOS DE IMAGEN
   imagePlaceholder: { width: '100%', height: 180, backgroundColor: '#fff', borderRadius: 15, justifyContent: 'center', alignItems: 'center', borderStyle: 'dashed', borderWidth: 2, borderColor: '#bdc3c7', overflow: 'hidden' },
   imageText: { color: '#bdc3c7', marginTop: 10, fontSize: 12 },
   previewImage: { width: '100%', height: '100%' },

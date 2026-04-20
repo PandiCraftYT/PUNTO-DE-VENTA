@@ -6,8 +6,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useAuth } from '../app/lib/auth_context'; // Ajustado con el guion bajo
-import { supabase } from '../app/lib/supabase'; // Ajustado con el guion bajo
+import { useAuth } from '../app/lib/auth_context'; 
+import { supabase } from '../app/lib/supabase'; 
 
 const { width } = Dimensions.get('window');
 const SIDEBAR_WIDTH = Math.min(width * 0.75, 300);
@@ -19,7 +19,6 @@ export default function CustomHeader({ title = "Punto de Venta" }: any) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const slideAnim = useRef(new Animated.Value(-SIDEBAR_WIDTH)).current;
   
-  // ESTADO NUEVO: Detecta si el enlace de la imagen está roto
   const [errorImagen, setErrorImagen] = useState(false);
 
   const esAdmin = usuario?.rol === 'admin';
@@ -48,8 +47,9 @@ export default function CustomHeader({ title = "Punto de Venta" }: any) {
   const cerrarSesion = async () => {
     try {
       if (usuario?.id) {
+        // Marcamos la desconexión restando tiempo para asegurar que el estado cambie
         const fechaPasada = new Date();
-        fechaPasada.setHours(fechaPasada.getHours() - 1);
+        fechaPasada.setMinutes(fechaPasada.getMinutes() - 5);
         await supabase.from('usuarios').update({ ultima_conexion: fechaPasada.toISOString() }).eq('id', usuario.id);
       }
     } catch (err) {
@@ -85,13 +85,12 @@ export default function CustomHeader({ title = "Punto de Venta" }: any) {
                 
                 <View style={styles.sidebarHeader}>
                   <View style={styles.avatarWrapper}>
-                    {/* LÓGICA DE IMAGEN CORREGIDA CON ONERROR */}
                     {fotoPerfil && fotoPerfil.startsWith('http') && !errorImagen ? (
                       <Image 
                         source={{ uri: fotoPerfil }} 
                         style={styles.avatarImage} 
                         resizeMode="cover"
-                        onError={() => setErrorImagen(true)} // Si el link está roto, cambia a true
+                        onError={() => setErrorImagen(true)}
                       />
                     ) : (
                       <Ionicons name="person-circle-outline" size={85} color={LOGO_BLUE} />
@@ -101,6 +100,7 @@ export default function CustomHeader({ title = "Punto de Venta" }: any) {
                   <Text style={[styles.sidebarRole, { color: esAdmin ? '#9c27b0' : LOGO_BLUE }]}>{rolMostrar}</Text>
                 </View>
 
+                {/* --- SECCIÓN OPERATIVA --- */}
                 <TouchableOpacity style={styles.menuItem} onPress={() => navegar('/(admin)/perfil')}>
                   <Ionicons name="person-outline" size={24} color="#333" />
                   <Text style={styles.menuText}>Mi Perfil</Text>
@@ -108,34 +108,36 @@ export default function CustomHeader({ title = "Punto de Venta" }: any) {
 
                 <TouchableOpacity style={styles.menuItem} onPress={() => navegar('/(admin)/ventas')}>
                   <Ionicons name="cart-outline" size={24} color="#333" />
-                  <Text style={styles.menuText}>Realizar Venta</Text>
+                  <Text style={styles.menuText}>Caja de Cobro</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.menuItem} onPress={() => navegar('/(admin)/taller')}>
-                  <Ionicons name="hardware-chip-outline" size={24} color="#333" />
-                  <Text style={styles.menuText}>Control de Taller</Text>
+                <TouchableOpacity style={styles.menuItem} onPress={() => navegar('/(admin)/productos')}>
+                  <Ionicons name="cube-outline" size={24} color="#333" />
+                  <Text style={styles.menuText}>Inventario</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.menuItem} onPress={() => navegar('/(admin)/clientes')}>
+                  <Ionicons name="people-outline" size={24} color="#333" />
+                  <Text style={styles.menuText}>Directorio Clientes</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity style={styles.menuItem} onPress={() => navegar('/(admin)/historial')}>
+                  <Ionicons name="bar-chart-outline" size={24} color="#333" />
+                  <Text style={styles.menuText}>Reportes y Ventas</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={styles.menuItem} onPress={() => navegar('/(admin)/cotizacion')}>
-                  <Ionicons name="calculator-outline" size={24} color="#333" />
-                  <Text style={styles.menuText}>Cotización Rápida</Text>
+                  <Ionicons name="document-text-outline" size={24} color="#333" />
+                  <Text style={styles.menuText}>Generar Cotización</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.menuItem} onPress={() => navegar('/(admin)/servicios')}>
-                  <Ionicons name="list-outline" size={24} color="#333" />
-                  <Text style={styles.menuText}>Catálogo de Servicios</Text>
-                </TouchableOpacity>
-
+                {/* --- SECCIÓN ADMINISTRATIVA --- */}
                 {esAdmin && (
                   <View style={styles.adminSection}>
-                    <Text style={styles.sectionTitle}>SISTEMA ADMIN</Text>
-                    <TouchableOpacity style={styles.menuItem} onPress={() => navegar('/(admin)/inversion')}>
-                      <Ionicons name="pie-chart-outline" size={24} color="#9c27b0" />
-                      <Text style={[styles.menuText, { color: '#9c27b0' }]}>Capital e Inversión</Text>
-                    </TouchableOpacity>
+                    <Text style={styles.sectionTitle}>ADMINISTRACIÓN</Text>
                     <TouchableOpacity style={styles.menuItem} onPress={() => navegar('/(admin)/usuarios')}>
-                      <Ionicons name="people-outline" size={24} color="#9c27b0" />
-                      <Text style={[styles.menuText, { color: '#9c27b0' }]}>Gestionar Usuarios</Text>
+                      <Ionicons name="shield-checkmark-outline" size={24} color="#9c27b0" />
+                      <Text style={[styles.menuText, { color: '#9c27b0' }]}>Gestionar Personal</Text>
                     </TouchableOpacity>
                   </View>
                 )}

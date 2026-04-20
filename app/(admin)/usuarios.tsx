@@ -6,13 +6,15 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../lib/supabase';
 import { useRouter } from 'expo-router'; 
+import { useAuth } from '../lib/auth_context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
 const LOGO_BLUE = '#0056FF';
-const DANGER_RED = '#ff4757'; // Color rojo para el botón de despedir
+const DANGER_RED = '#ff4757';
 
 export default function GestionUsuariosScreen() {
   const router = useRouter(); 
+  const { usuario: adminLogueado } = useAuth(); // Obtenemos el usuario actual
   const [usuarios, setUsuarios] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalVisible, setModalVisible] = useState(false);
@@ -25,30 +27,22 @@ export default function GestionUsuariosScreen() {
   const [pin, setPin] = useState('');
   const [rol, setRol] = useState('empleado');
 
-  // --- ESCUCHA EN TIEMPO REAL (REALTIME) ---
   useEffect(() => {
     cargarUsuarios();
 
     const canal = supabase
       .channel('cambios-usuarios')
-      .on(
-        'postgres_changes', 
-        { event: '*', schema: 'public', table: 'usuarios' }, 
-        (payload) => {
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'usuarios' }, () => {
           cargarUsuarios(); 
-        }
-      )
+      })
       .subscribe();
 
-    return () => {
-      supabase.removeChannel(canal);
-    };
+    return () => { supabase.removeChannel(canal); };
   }, []);
 
   const cargarUsuarios = async () => {
     try {
       if(usuarios.length === 0) setLoading(true); 
-      
       const { data, error } = await supabase
         .from('usuarios')
         .select('*')
@@ -64,15 +58,12 @@ export default function GestionUsuariosScreen() {
   };
 
   const formatearConexion = (fechaISO: string) => {
-    if (!fechaISO) return "Desconectado";
-    
+    if (!fechaISO) return "Sin actividad";
     const ultima = new Date(fechaISO);
     const ahora = new Date();
-    const diferenciaMs = ahora.getTime() - ultima.getTime();
-    const segundos = Math.floor(diferenciaMs / 1000);
+    const segundos = Math.floor((ahora.getTime() - ultima.getTime()) / 1000);
 
-    if (segundos < 10) return "En línea";
-    
+    if (segundos < 15) return "En línea";
     const esHoy = ultima.toDateString() === ahora.toDateString();
     return esHoy 
       ? `Hoy ${ultima.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}`
@@ -83,9 +74,8 @@ export default function GestionUsuariosScreen() {
     if (user) {
       setUserId(user.id);
       setNombre(user.nombre);
-      // Aseguramos que se lean como string para el TextInput
-      setNumCuenta(user.num_cuenta ? user.num_cuenta.toString() : '');
-      setPin(user.pin ? user.pin.toString() : '');
+      setNumCuenta(user.num_cuenta?.toString() || '');
+      setPin(user.pin?.toString() || '');
       setRol(user.rol);
     } else {
       setUserId(null);
@@ -104,8 +94,6 @@ export default function GestionUsuariosScreen() {
     }
     setProcesando(true);
     try {
-      // Nos aseguramos de enviar los datos limpios. 
-      // NOTA: Si num_cuenta y pin son INTEGER en tu BD, usa parseInt(numCuenta.trim(), 10)
       const payload = { 
         nombre: nombre.trim(), 
         num_cuenta: numCuenta.trim(), 
@@ -118,48 +106,42 @@ export default function GestionUsuariosScreen() {
         const { error } = await supabase.from('usuarios').update(payload).eq('id', userId);
         if (error) throw error;
       } else {
-        // En Supabase v2, a menudo es mejor enviar el objeto directo si es uno solo
         const { error } = await supabase.from('usuarios').insert(payload);
         if (error) throw error;
       }
-      
       setModalVisible(false);
     } catch (error: any) {
-      console.log("Error detallado al guardar:", error); // Esto nos dirá si falló por una regla de BD (ej. num_cuenta duplicado)
-      Alert.alert("Error al guardar", error.message || "Verifica que el número de cuenta no esté repetido.");
+      Alert.alert("Error", "Verifica que el número de cuenta no esté repetido.");
     } finally {
       setProcesando(false);
     }
   };
 
-  // --- LÓGICA PARA ELIMINAR / DESPEDIR USUARIO ---
   const confirmarEliminar = () => {
+    // Seguridad: No permitir que el admin se borre a sí mismo
+    if (userId === adminLogueado?.id) {
+      Alert.alert("Acción no permitida", "No puedes eliminar tu propia cuenta de administrador desde aquí.");
+      return;
+    }
+
     if (Platform.OS === 'web') {
-      const seguro = window.confirm(`¿Estás seguro de que quieres eliminar a ${nombre}? Se le revocará el acceso de inmediato.`);
-      if (seguro) handleEliminar();
+      if (window.confirm(`¿Revocar acceso a ${nombre}?`)) handleEliminar();
     } else {
-      Alert.alert(
-        "Despedir Empleado",
-        `¿Estás seguro de que quieres eliminar a ${nombre}? Se le revocará el acceso de inmediato.`,
-        [
+      Alert.alert("Despedir Empleado", `¿Revocar acceso de inmediato a ${nombre}?`, [
           { text: "Cancelar", style: "cancel" },
-          { text: "Sí, Eliminar", style: "destructive", onPress: handleEliminar }
-        ]
-      );
+          { text: "Eliminar Acceso", style: "destructive", onPress: handleEliminar }
+      ]);
     }
   };
 
   const handleEliminar = async () => {
-    if (!userId) return;
     setProcesando(true);
     try {
       const { error } = await supabase.from('usuarios').delete().eq('id', userId);
       if (error) throw error;
-      
       setModalVisible(false);
-      if (Platform.OS === 'web') window.alert('Usuario eliminado correctamente.');
     } catch (error: any) {
-      Alert.alert("Error al eliminar", error.message);
+      Alert.alert("Error al eliminar", "Este usuario tiene registros de ventas y no puede ser borrado (puedes desactivarlo en su lugar).");
     } finally {
       setProcesando(false);
     }
@@ -168,15 +150,13 @@ export default function GestionUsuariosScreen() {
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <SafeAreaView style={styles.container}>
-        
         <View style={styles.header}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
             <Ionicons name="arrow-back" size={24} color="#333" />
             <Text style={styles.backText}>Atrás</Text>
           </TouchableOpacity>
           <View style={styles.headerTitleContainer}>
-            <Text style={styles.headerSub}>ADMIN</Text>
-            <Text style={styles.headerTitle}>CONTROL DE PERSONAL</Text>
+            <Text style={styles.headerTitle}>GESTIÓN DE PERSONAL</Text>
           </View>
           <View style={{ width: 60 }} /> 
         </View>
@@ -195,18 +175,15 @@ export default function GestionUsuariosScreen() {
               return (
                 <TouchableOpacity style={styles.userCard} onPress={() => abrirModal(item)}>
                   <View style={styles.avatarMini}>
-                    <Text style={styles.avatarText}>{item.nombre.charAt(0)}</Text>
+                    <Text style={styles.avatarText}>{item.nombre.charAt(0).toUpperCase()}</Text>
                     {isOnline && <View style={styles.onlineBadge} />}
                   </View>
-                  
                   <View style={styles.userInfo}>
                     <Text style={styles.userName}>{item.nombre}</Text>
-                    <Text style={[styles.userStatus, isOnline && {color: '#2ecc71', fontWeight: 'bold'}]}>
-                      {status}
-                    </Text>
+                    <Text style={[styles.userStatus, isOnline && {color: '#2ecc71', fontWeight: 'bold'}]}>{status}</Text>
                     <Text style={styles.userSub}>ID: {item.num_cuenta} • {item.rol.toUpperCase()}</Text>
                   </View>
-                  <Ionicons name="chevron-forward" size={18} color="#ccc" />
+                  <Ionicons name="pencil-outline" size={18} color="#cbd5e1" />
                 </TouchableOpacity>
               );
             }}
@@ -214,47 +191,47 @@ export default function GestionUsuariosScreen() {
         )}
 
         <TouchableOpacity style={styles.fab} onPress={() => abrirModal()}>
-          <Ionicons name="add" size={30} color="#fff" />
+          <Ionicons name="person-add" size={24} color="#fff" />
         </TouchableOpacity>
 
         <Modal visible={modalVisible} animationType="fade" transparent={true}>
           <View style={styles.modalOverlay}>
             <View style={styles.modalContent}>
-              <Text style={styles.modalTitle}>{userId ? 'Editar Usuario' : 'Nuevo Usuario'}</Text>
-              <TextInput style={styles.input} value={nombre} onChangeText={setNombre} placeholder="Nombre" placeholderTextColor="#a0aec0"/>
-              <TextInput style={styles.input} value={numCuenta} onChangeText={setNumCuenta} placeholder="Cuenta" keyboardType="numeric" placeholderTextColor="#a0aec0"/>
-              <TextInput style={styles.input} value={pin} onChangeText={setPin} placeholder="PIN" keyboardType="numeric" maxLength={4} placeholderTextColor="#a0aec0"/>
+              <Text style={styles.modalTitle}>{userId ? 'Editar Cuenta' : 'Nuevo Acceso'}</Text>
+              <TextInput style={styles.input} value={nombre} onChangeText={setNombre} placeholder="Nombre del empleado" placeholderTextColor="#94a3b8"/>
+              <TextInput style={styles.input} value={numCuenta} onChangeText={setNumCuenta} placeholder="ID de Usuario / Cuenta" keyboardType="default" placeholderTextColor="#94a3b8"/>
+              <TextInput style={styles.input} value={pin} onChangeText={setPin} placeholder="PIN / Contraseña" secureTextEntry keyboardType="default" placeholderTextColor="#94a3b8"/>
               
               <View style={styles.rolRow}>
-                <TouchableOpacity style={[styles.rolBtn, rol === 'empleado' && styles.rolBtnActive]} onPress={() => setRol('empleado')}>
-                   <Text style={[styles.rolBtnText, rol === 'empleado' && {color: '#fff'}]}>Empleado</Text>
-                </TouchableOpacity>
-                <TouchableOpacity style={[styles.rolBtn, rol === 'admin' && styles.rolBtnActive]} onPress={() => setRol('admin')}>
-                   <Text style={[styles.rolBtnText, rol === 'admin' && {color: '#fff'}]}>Admin</Text>
-                </TouchableOpacity>
+                {['empleado', 'admin'].map((r) => (
+                  <TouchableOpacity 
+                    key={r} 
+                    style={[styles.rolBtn, rol === r && styles.rolBtnActive]} 
+                    onPress={() => setRol(r)}
+                  >
+                     <Text style={[styles.rolBtnText, rol === r && {color: '#fff'}]}>
+                       {r.charAt(0).toUpperCase() + r.slice(1)}
+                     </Text>
+                  </TouchableOpacity>
+                ))}
               </View>
 
-              <TouchableOpacity style={styles.saveBtn} onPress={handleGuardar}>
-                {procesando ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Guardar</Text>}
+              <TouchableOpacity style={styles.saveBtn} onPress={handleGuardar} disabled={procesando}>
+                {procesando ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveBtnText}>Guardar Cambios</Text>}
               </TouchableOpacity>
 
-              {/* --- BOTÓN ELIMINAR / DESPEDIR (SOLO SI SE ESTÁ EDITANDO) --- */}
-              {userId && (
-                <TouchableOpacity 
-                  style={styles.deleteBtn} 
-                  onPress={confirmarEliminar}
-                  disabled={procesando}
-                >
-                  <Ionicons name="trash-outline" size={18} color={DANGER_RED} style={{marginRight: 5}} />
-                  <Text style={styles.deleteBtnText}>Eliminar Acceso</Text>
+              {userId && userId !== adminLogueado?.id && (
+                <TouchableOpacity style={styles.deleteBtn} onPress={confirmarEliminar} disabled={procesando}>
+                  <Text style={styles.deleteBtnText}>Eliminar Usuario</Text>
                 </TouchableOpacity>
               )}
 
-              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}><Text>Cerrar</Text></TouchableOpacity>
+              <TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeBtn}>
+                <Text style={{color: '#94a3b8', fontWeight: 'bold'}}>Cancelar</Text>
+              </TouchableOpacity>
             </View>
           </View>
         </Modal>
-
       </SafeAreaView>
     </GestureHandlerRootView>
   );
@@ -262,58 +239,32 @@ export default function GestionUsuariosScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f6f7fb' },
-  
-  header: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingHorizontal: 15, 
-    paddingTop: Platform.OS === 'ios' ? 10 : 45, 
-    paddingBottom: 15, 
-    backgroundColor: '#fff', 
-    borderBottomWidth: 1, 
-    borderBottomColor: '#eee',
-    justifyContent: 'space-between',
-  },
-  backBtn: { 
-    flexDirection: 'row', 
-    alignItems: 'center', 
-    paddingRight: 10,
-  },
-  backText: { fontSize: 16, color: '#333', fontWeight: '600', marginLeft: 5 },
+  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 15, paddingTop: Platform.OS === 'ios' ? 10 : 45, paddingBottom: 15, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#eee' },
+  backBtn: { flexDirection: 'row', alignItems: 'center' },
+  backText: { fontSize: 15, color: '#333', fontWeight: '600', marginLeft: 5 },
   headerTitleContainer: { flex: 1, alignItems: 'center' },
-  headerSub: { fontSize: 10, fontWeight: 'bold', color: LOGO_BLUE, letterSpacing: 1 },
   headerTitle: { fontSize: 16, fontWeight: '900', color: '#1e293b' },
-
-  listContent: { padding: 20, paddingBottom: 100 },
-  userCard: { 
-    flexDirection: 'row', backgroundColor: '#fff', padding: 18, 
-    borderRadius: 20, alignItems: 'center', marginBottom: 12,
-    elevation: 2, shadowColor: '#000', shadowOpacity: 0.04, shadowRadius: 10
-  },
-  avatarMini: { width: 50, height: 50, borderRadius: 25, backgroundColor: LOGO_BLUE, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
-  avatarText: { color: '#fff', fontWeight: 'bold', fontSize: 20 },
-  onlineBadge: { position: 'absolute', bottom: 2, right: 2, width: 14, height: 14, borderRadius: 7, backgroundColor: '#2ecc71', borderWidth: 2, borderColor: '#fff' },
+  listContent: { padding: 15, paddingBottom: 100 },
+  userCard: { flexDirection: 'row', backgroundColor: '#fff', padding: 15, borderRadius: 16, alignItems: 'center', marginBottom: 10, elevation: 2, borderWidth: 1, borderColor: '#f1f5f9' },
+  avatarMini: { width: 45, height: 45, borderRadius: 22.5, backgroundColor: LOGO_BLUE, justifyContent: 'center', alignItems: 'center', marginRight: 15 },
+  avatarText: { color: '#fff', fontWeight: 'bold', fontSize: 18 },
+  onlineBadge: { position: 'absolute', bottom: 0, right: 0, width: 12, height: 12, borderRadius: 6, backgroundColor: '#2ecc71', borderWidth: 2, borderColor: '#fff' },
   userInfo: { flex: 1 },
-  userName: { fontSize: 17, fontWeight: '800', color: '#1e293b' },
-  userStatus: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
-  userSub: { fontSize: 11, color: '#cbd5e1', marginTop: 2, textTransform: 'uppercase', letterSpacing: 0.5 },
-  
-  fab: { position: 'absolute', bottom: 30, right: 20, backgroundColor: LOGO_BLUE, width: 60, height: 60, borderRadius: 30, justifyContent: 'center', alignItems: 'center', elevation: 8 },
-  
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 25 },
-  modalContent: { backgroundColor: '#fff', borderRadius: 30, padding: 30 },
-  modalTitle: { fontSize: 22, fontWeight: '900', marginBottom: 20, textAlign: 'center' },
-  input: { backgroundColor: '#f8fafc', padding: 16, borderRadius: 15, borderWidth: 1, borderColor: '#e2e8f0', fontSize: 16, marginBottom: 12, ...(Platform.OS === 'web' && { outlineStyle: 'none' } as any) },
+  userName: { fontSize: 16, fontWeight: 'bold', color: '#1e293b' },
+  userStatus: { fontSize: 11, color: '#94a3b8', marginTop: 2 },
+  userSub: { fontSize: 10, color: '#64748b', marginTop: 2, textTransform: 'uppercase' },
+  fab: { position: 'absolute', bottom: 30, right: 20, backgroundColor: LOGO_BLUE, width: 56, height: 56, borderRadius: 28, justifyContent: 'center', alignItems: 'center', elevation: 5 },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
+  modalContent: { backgroundColor: '#fff', borderRadius: 24, padding: 25 },
+  modalTitle: { fontSize: 20, fontWeight: '900', marginBottom: 20, textAlign: 'center', color: '#1e293b' },
+  input: { backgroundColor: '#f8fafc', padding: 15, borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', fontSize: 15, marginBottom: 10 },
   rolRow: { flexDirection: 'row', marginBottom: 20 },
-  rolBtn: { flex: 1, padding: 15, alignItems: 'center', borderRadius: 12, borderWidth: 1, borderColor: '#e2e8f0', marginHorizontal: 5 },
+  rolBtn: { flex: 1, padding: 12, alignItems: 'center', borderRadius: 10, borderWidth: 1, borderColor: '#e2e8f0', marginHorizontal: 5 },
   rolBtnActive: { backgroundColor: LOGO_BLUE, borderColor: LOGO_BLUE },
-  rolBtnText: { fontWeight: 'bold', color: '#64748b' },
-  saveBtn: { backgroundColor: LOGO_BLUE, padding: 20, borderRadius: 15, alignItems: 'center' },
+  rolBtnText: { fontWeight: 'bold', color: '#64748b', fontSize: 13 },
+  saveBtn: { backgroundColor: LOGO_BLUE, padding: 16, borderRadius: 12, alignItems: 'center', elevation: 2 },
   saveBtnText: { color: '#fff', fontWeight: 'bold', fontSize: 16 },
-
-  // ESTILOS DEL BOTÓN ELIMINAR
-  deleteBtn: { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', padding: 15, marginTop: 10, borderRadius: 15, borderWidth: 1, borderColor: '#fef2f2', backgroundColor: '#fffcfc' },
-  deleteBtnText: { color: DANGER_RED, fontWeight: 'bold', fontSize: 15 },
-
-  closeBtn: { marginTop: 20, alignItems: 'center' }
+  deleteBtn: { padding: 12, marginTop: 10, borderRadius: 12, alignItems: 'center' },
+  deleteBtnText: { color: DANGER_RED, fontWeight: 'bold', fontSize: 14 },
+  closeBtn: { marginTop: 15, alignItems: 'center' }
 });
